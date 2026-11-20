@@ -67,14 +67,14 @@ async function main() {
   check('strategy toggle buttons exist', !!document.getElementById('stratConsolidated') && !!document.getElementById('stratCasepack'));
   check('toast element exists', !!toast());
 
-  // A. initial imperial
-  check('A: initial imperial 38 cartons / 275 units / 241 lbs / 80%', JSON.stringify(statVals()) === JSON.stringify(['38', '275', '241 lbs', '80%']), statVals().join(','));
+  // A. initial imperial (extreme-point placement: 43 honest cartons, not 38 volume-sum ones)
+  check('A: initial imperial 43 cartons / 275 units / 244 lbs / 78%', JSON.stringify(statVals()) === JSON.stringify(['43', '275', '244 lbs', '78%']), statVals().join(','));
 
   // B/C. metric mode: real conversion + parity
   click('unitMetric');
   await tick();
-  check('B: metric gross is 109.5 kg (241.4 lb unrounded total converted)', statVals()[2] === '109.5 kg', statVals()[2]);
-  check('C: metric carton count parity (still 38)', cartonCount() === '38', cartonCount());
+  check('B: metric gross is 110.5 kg (243.7 lb unrounded total converted)', statVals()[2] === '110.5 kg', statVals()[2]);
+  check('C: metric carton count parity (still 43)', cartonCount() === '43', cartonCount());
   check('B: carton header shows cm + kg', firstCartonHeader().includes('cm') && firstCartonHeader().includes('kg'), firstCartonHeader().slice(0, 90));
   const firstLen = document.querySelector('#inventoryTbody tr td:nth-child(2) input').value;
   check('B: mug length input shows 14 cm (5.5 in converted)', firstLen === '14', firstLen);
@@ -88,7 +88,7 @@ async function main() {
   check('D: case-pack metric gross 104.1 kg (229.5 lb unrounded total converted)', statVals()[2] === '104.1 kg', statVals()[2]);
   click('stratConsolidated');
   await tick();
-  check('D: back to consolidated, 38 cartons', cartonCount() === '38', cartonCount());
+  check('D: back to consolidated, 43 cartons', cartonCount() === '43', cartonCount());
 
   // E. copy manifest: Bankr path, clipboard path, execCommand path, failure path
   click('btnCopyManifest');
@@ -120,13 +120,14 @@ async function main() {
   click('btnCopyCsv');
   await tick();
   check('F: Copy CSV toast', toast().textContent.includes('CSV copied'), toast().textContent);
-  check('F: CSV stays imperial (header + 12x10x8 S1 box)', capturedClipboard?.startsWith('Box Name,Length (in),Width (in),Height (in),Weight (lbs)') && capturedClipboard?.includes('"Box 1",12,10,8,3.45,'), (capturedClipboard || '').split('\n')[1]);
+  check('F: CSV stays imperial (header + 12x10x8 S1 box, 4.9 lb)', capturedClipboard?.startsWith('Box Name,Length (in),Width (in),Height (in),Weight (lbs)') && capturedClipboard?.includes('"Box 1",12,10,8,4.9,'), (capturedClipboard || '').split('\n')[1]);
 
   // G. Add SKU auto-recalculates (no Calculate click)
   const before = cartonCount();
   click('btnAddRow');
   await tick();
   check('G: Add SKU auto-recalculates (units 295, no Calculate click)', statVals()[1] === '295', `units=${statVals()[1]} cartons=${cartonCount()} (was ${before})`);
+  check('G: adding 20 mid-size units adds 4 cartons (43 -> 47), no blow-up', cartonCount() === '47', cartonCount());
   const newRowLen = [...document.querySelectorAll('#inventoryTbody tr')].pop().querySelector('td:nth-child(2) input').value;
   check('G: new SKU row displays in cm (8 in -> 20.3)', newRowLen === '20.3', newRowLen);
 
@@ -135,7 +136,7 @@ async function main() {
   await tick();
   const palletText = () => document.getElementById('palletContainer').textContent.replace(/\s+/g, ' ');
   check('H: freight shows GMA pallet plan', palletText().includes('GMA') && palletText().includes('Ti'), palletText().slice(0, 120));
-  check('H: pallet weights in kg (metric, 310 lb avg -> 140.61 kg)', palletText().includes('140.61 kg'), palletText().slice(0, 200));
+  check('H: pallet weights in kg (metric, 311 lb avg -> 141.07 kg)', palletText().includes('141.07 kg'), palletText().slice(0, 200));
   const gmaTi = (palletText().match(/(\d+) Ti/) || [])[1];
   click('palletEuro');
   await tick();
@@ -159,6 +160,19 @@ async function main() {
   await tick();
   check('J: editing a cell auto-recalculates (results still shown)', document.getElementById('resultsPanel').style.display === 'block' && statVals()[1] === '295');
   check('J: edited value persists as 28 cm', document.querySelector('#inventoryTbody tr td:nth-child(2) input').value === '28');
+
+  // K. placement sanity: units conserved, no box over the 50 lb cap, no util over 99%
+  let summedUnits = 0, maxBoxWt = 0, maxBoxUtil = 0;
+  for (const b of document.querySelectorAll('.box-card')) {
+    for (const r of b.querySelectorAll('.box-item-row span:last-child')) summedUnits += parseInt(r.textContent);
+    const hm = b.querySelector('.box-header').textContent.match(/([\d.]+) (lbs|kg)/);
+    if (hm) maxBoxWt = Math.max(maxBoxWt, hm[2] === 'kg' ? parseFloat(hm[1]) / 0.45359237 : parseFloat(hm[1]));
+    const um = b.querySelector('.box-details').textContent.match(/Space Utilization:\s*(\d+)%/);
+    if (um) maxBoxUtil = Math.max(maxBoxUtil, parseInt(um[1]));
+  }
+  check('K: units conserved across cartons (295)', summedUnits === 295, `summed=${summedUnits}`);
+  check('K: no carton over the weight cap', maxBoxWt <= 50, `max=${maxBoxWt}`);
+  check('K: no carton utilization over 99%', maxBoxUtil <= 99, `max=${maxBoxUtil}%`);
 
   check('no alerts fired', alerts.length === 0, alerts.join(';'));
   console.log(failures === 0 ? 'ALL FIXED CHECKS PASSED' : `${failures} CHECK(S) FAILED`);

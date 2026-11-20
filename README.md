@@ -41,16 +41,31 @@ Bankr's own fork button is turned off per their docs, so this is a source fork.
    recalculate automatically once results are shown.
 5. **Bonus: Euro pallet was ignored.** The pallet math always used GMA 48x40
    even when Euro was selected. Euro now uses 47x31 in and its own label;
-   Ti/Hi changes accordingly (sample: GMA 12x8, Euro 9x8).
+   Ti/Hi changes accordingly (sample: GMA 16x8, Euro 9x8).
+
+## Box math (swapped in Nov 20 2026)
+
+Consolidated mode used to sum volumes and cap at 82% of box volume, with no
+check that items fit together in 3D. It claimed 38 cartons at 80% on the
+sample, a number no real packing achieves.
+
+Now it is first-fit decreasing with extreme-point placement: units sorted by
+volume, each placed as a real cuboid at the lowest free corner point in one
+of its six orientations, weight cap as a hard limit. Utilization is measured
+from placed volume. Sample result: 43 cartons, 244 lbs, 78% average, max
+88% in any carton, no carton over the 50 lb cap, all 275 units accounted
+for. Recalc takes ~94 ms on the sample. Case-pack mode is unchanged (min of
+volume / weight / orientation counts, 7 cartons on the sample).
 
 ## Verified
 
 - `node test.mjs original`: all 5 bug-reproduction checks pass (bugs confirmed present).
-- `node test.mjs fixed`: 27/27 checks pass, including imperial/metric parity
-  (same 38 cartons, 241 lbs = 109.5 kg), case-pack toggle (7 cartons),
+- `node test.mjs fixed`: 31/31 checks pass, including imperial/metric parity
+  (same 43 cartons, 244 lbs = 110.5 kg), case-pack toggle (7 cartons),
   all four copy paths (Bankr / clipboard / execCommand / total failure),
-  CSV staying imperial, auto-recalc on add/edit, Euro Ti change, and an
-  imperial round trip after metric edits.
+  CSV staying imperial, auto-recalc on add/edit, Euro Ti change, an
+  imperial round trip after metric edits, and placement sanity (units
+  conserved, no carton over 50 lbs, no utilization over 99%).
 - JS syntax checked with `node --check`; no references remain to the removed
   select element ids. Not yet clicked through in a live browser; the
   headless run covers the same interactions, and the toggle buttons are the

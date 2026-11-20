@@ -14,6 +14,8 @@ Fixes, against original/index.html:
     iframe blocks the file download.
  4. Editing inventory / settings auto-recalculates when results are shown.
 Also fixed: Euro pallet selection was ignored (math always used GMA 48x40).
+R36 (Nov 20 2026): consolidated packing swapped from volume-sum greedy
+(82% fudge) to extreme-point first-fit decreasing with real 3D placement.
 """
 import pathlib
 
@@ -627,6 +629,129 @@ renderInventoryTable();
 updateUnitLabels();
 syncPalletWeightInput();
 calculatePacking();""")
+
+# --- R36: consolidated packing -> extreme-point first-fit decreasing ---
+# Replaces the volume-sum greedy fill (82% fudge factor, no 3D geometry
+# check) with real cuboid placement: units sorted by volume desc, each
+# placed at the lowest free extreme point in one of its six orientations,
+# weight cap as a hard limit. Utilization is measured from placed volume.
+_START = "  } else {\n    // Consolidated Mode: 3D heuristic bin packing (Best Fit Decreasing)"
+_END = "  }\n\n  // Calculate Freight / Pallet Configuration"
+assert html.count(_START) == 1, 'consolidated block start not found'
+assert html.count(_END) == 1, 'consolidated block end not found'
+_s = html.index(_START)
+_e = html.index(_END) + len("  }\n")
+_NEW_CONSOLIDATED = """  } else {
+    // Consolidated Mode: first-fit decreasing with extreme-point placement.
+    // Every unit is placed as a real 3D cuboid at a free corner point, in
+    // one of its six orientations, so the reported utilization is measured
+    // from actual placed volume, not a guessed efficiency factor.
+    expandedItems.sort((a, b) => b.vol - a.vol || Math.max(b.l, b.w, b.h) - Math.max(a.l, a.w, a.h));
+
+    const orientations = (it) => {
+      const [l, w, h] = [it.l, it.w, it.h];
+      return [[l, w, h], [l, h, w], [w, l, h], [w, h, l], [h, l, w], [h, w, l]];
+    };
+    const fitsInBox = (it, b) => {
+      const dims = [it.l, it.w, it.h].sort((x, y) => x - y);
+      const box = [b.l, b.w, b.h].sort((x, y) => x - y);
+      return dims[0] <= box[0] && dims[1] <= box[1] && dims[2] <= box[2];
+    };
+    const overlaps = (placed, x, y, z, l, w, h) => placed.some(p =>
+      x < p.x + p.l && x + l > p.x &&
+      y < p.y + p.w && y + w > p.y &&
+      z < p.z + p.h && z + h > p.z);
+
+    let unassigned = [...expandedItems];
+
+    while (unassigned.length > 0) {
+      // Smallest box that can contain the largest remaining item, in any orientation.
+      let chosenBox = null;
+      for (let b of availableBoxes) {
+        if (fitsInBox(unassigned[0], b)) { chosenBox = b; break; }
+      }
+      // Oversize item: no catalogue box holds it. Use the largest box and
+      // force-place it alone (already flagged by the oversize warning).
+      if (!chosenBox) chosenBox = availableBoxes[availableBoxes.length - 1];
+
+      const boxVol = chosenBox.l * chosenBox.w * chosenBox.h;
+      const placed = []; // {x,y,z,l,w,h} cuboids already in this carton
+      let points = [{ x: 0, y: 0, z: 0 }]; // extreme points: free corner candidates
+      let currentWeight = chosenBox.tare;
+      let currentVol = 0;
+      const itemsInThisBox = {};
+      const remainingUnassigned = [];
+
+      const tryPlace = (item) => {
+        if (currentWeight + item.wt > chosenBox.maxWt) return false;
+        // Lowest point first (z, then y, then x); first orientation that fits wins.
+        const ordered = [...points].sort((a, b) => a.z - b.z || a.y - b.y || a.x - b.x);
+        for (let pt of ordered) {
+          for (let [l, w, h] of orientations(item)) {
+            if (pt.x + l > chosenBox.l || pt.y + w > chosenBox.w || pt.z + h > chosenBox.h) continue;
+            if (overlaps(placed, pt.x, pt.y, pt.z, l, w, h)) continue;
+            placed.push({ x: pt.x, y: pt.y, z: pt.z, l, w, h });
+            points = points.filter(p => p !== pt);
+            for (let np of [{ x: pt.x + l, y: pt.y, z: pt.z }, { x: pt.x, y: pt.y + w, z: pt.z }, { x: pt.x, y: pt.y, z: pt.z + h }]) {
+              if (np.x <= chosenBox.l && np.y <= chosenBox.w && np.z <= chosenBox.h) points.push(np);
+            }
+            // Drop duplicates and points that fell inside a placed cuboid
+            // (they can never be a placement origin).
+            const seen = new Set();
+            points = points.filter(p => {
+              const k = p.x + ',' + p.y + ',' + p.z;
+              if (seen.has(k)) return false;
+              seen.add(k);
+              return !placed.some(q => p.x >= q.x && p.x < q.x + q.l && p.y >= q.y && p.y < q.y + q.w && p.z >= q.z && p.z < q.z + q.h);
+            });
+            currentWeight += item.wt;
+            currentVol += item.vol;
+            itemsInThisBox[item.sku] = (itemsInThisBox[item.sku] || 0) + 1;
+            return true;
+          }
+        }
+        return false;
+      };
+
+      for (let item of unassigned) {
+        if (!tryPlace(item)) remainingUnassigned.push(item);
+      }
+
+      // Nothing fit: force the largest remaining item in alone so the loop always advances.
+      if (Object.keys(itemsInThisBox).length === 0 && unassigned.length > 0) {
+        const forced = unassigned[0];
+        const [l, w, h] = orientations(forced)[0];
+        placed.push({ x: 0, y: 0, z: 0, l, w, h });
+        currentWeight = chosenBox.tare + forced.wt;
+        currentVol = forced.vol;
+        itemsInThisBox[forced.sku] = 1;
+        remainingUnassigned.shift();
+      }
+
+      unassigned = remainingUnassigned;
+
+      const itemsSummary = Object.keys(itemsInThisBox).map(sku => ({
+        sku,
+        count: itemsInThisBox[sku]
+      }));
+
+      const util = Math.min(99, Math.round((currentVol / boxVol) * 100));
+
+      boxesPacked.push({
+        boxName: chosenBox.name,
+        l: chosenBox.l,
+        w: chosenBox.w,
+        h: chosenBox.h,
+        tare: chosenBox.tare,
+        weight: Math.round(currentWeight * 100) / 100,
+        utilization: util,
+        items: itemsSummary,
+        mode: 'Consolidated Mixed'
+      });
+    }
+  }
+"""
+html = html[:_s] + _NEW_CONSOLIDATED + html[_e:]
 
 DST.write_text(html)
 # Repo-root copy: the fixed app itself, so GitHub Pages serves it at /.

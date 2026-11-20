@@ -1168,52 +1168,89 @@ function calculatePacking() {
     });
 
   } else {
-    // Consolidated Mode: 3D heuristic bin packing (Best Fit Decreasing)
-    // Sort items by volume descending
-    expandedItems.sort((a, b) => b.vol - a.vol);
+    // Consolidated Mode: first-fit decreasing with extreme-point placement.
+    // Every unit is placed as a real 3D cuboid at a free corner point, in
+    // one of its six orientations, so the reported utilization is measured
+    // from actual placed volume, not a guessed efficiency factor.
+    expandedItems.sort((a, b) => b.vol - a.vol || Math.max(b.l, b.w, b.h) - Math.max(a.l, a.w, a.h));
+
+    const orientations = (it) => {
+      const [l, w, h] = [it.l, it.w, it.h];
+      return [[l, w, h], [l, h, w], [w, l, h], [w, h, l], [h, l, w], [h, w, l]];
+    };
+    const fitsInBox = (it, b) => {
+      const dims = [it.l, it.w, it.h].sort((x, y) => x - y);
+      const box = [b.l, b.w, b.h].sort((x, y) => x - y);
+      return dims[0] <= box[0] && dims[1] <= box[1] && dims[2] <= box[2];
+    };
+    const overlaps = (placed, x, y, z, l, w, h) => placed.some(p =>
+      x < p.x + p.l && x + l > p.x &&
+      y < p.y + p.w && y + w > p.y &&
+      z < p.z + p.h && z + h > p.z);
 
     let unassigned = [...expandedItems];
 
     while (unassigned.length > 0) {
-      // Pick best box candidate
-      let chosenBox = availableBoxes[0];
-      // Pick box that accommodates the largest remaining items
+      // Smallest box that can contain the largest remaining item, in any orientation.
+      let chosenBox = null;
       for (let b of availableBoxes) {
-        if (b.l >= unassigned[0].l && b.w >= unassigned[0].w && b.h >= unassigned[0].h) {
-          chosenBox = b;
-          break;
-        }
+        if (fitsInBox(unassigned[0], b)) { chosenBox = b; break; }
       }
+      // Oversize item: no catalogue box holds it. Use the largest box and
+      // force-place it alone (already flagged by the oversize warning).
+      if (!chosenBox) chosenBox = availableBoxes[availableBoxes.length - 1];
 
       const boxVol = chosenBox.l * chosenBox.w * chosenBox.h;
-      const usableVol = boxVol * 0.82; // 82% realistic mixed pack packing density
-      const maxWeightCapacity = chosenBox.maxWt - chosenBox.tare;
-
+      const placed = []; // {x,y,z,l,w,h} cuboids already in this carton
+      let points = [{ x: 0, y: 0, z: 0 }]; // extreme points: free corner candidates
       let currentWeight = chosenBox.tare;
       let currentVol = 0;
       const itemsInThisBox = {};
       const remainingUnassigned = [];
 
-      for (let item of unassigned) {
-        const fitsDims = (item.l <= chosenBox.l && item.w <= chosenBox.w && item.h <= chosenBox.h) ||
-                         (item.l <= chosenBox.w && item.w <= chosenBox.l && item.h <= chosenBox.h) ||
-                         (item.l <= chosenBox.h && item.w <= chosenBox.l && item.h <= chosenBox.w);
-
-        if (fitsDims && (currentWeight + item.wt <= chosenBox.maxWt) && (currentVol + item.vol <= usableVol)) {
-          currentWeight += item.wt;
-          currentVol += item.vol;
-          itemsInThisBox[item.sku] = (itemsInThisBox[item.sku] || 0) + 1;
-        } else {
-          remainingUnassigned.push(item);
+      const tryPlace = (item) => {
+        if (currentWeight + item.wt > chosenBox.maxWt) return false;
+        // Lowest point first (z, then y, then x); first orientation that fits wins.
+        const ordered = [...points].sort((a, b) => a.z - b.z || a.y - b.y || a.x - b.x);
+        for (let pt of ordered) {
+          for (let [l, w, h] of orientations(item)) {
+            if (pt.x + l > chosenBox.l || pt.y + w > chosenBox.w || pt.z + h > chosenBox.h) continue;
+            if (overlaps(placed, pt.x, pt.y, pt.z, l, w, h)) continue;
+            placed.push({ x: pt.x, y: pt.y, z: pt.z, l, w, h });
+            points = points.filter(p => p !== pt);
+            for (let np of [{ x: pt.x + l, y: pt.y, z: pt.z }, { x: pt.x, y: pt.y + w, z: pt.z }, { x: pt.x, y: pt.y, z: pt.z + h }]) {
+              if (np.x <= chosenBox.l && np.y <= chosenBox.w && np.z <= chosenBox.h) points.push(np);
+            }
+            // Drop duplicates and points that fell inside a placed cuboid
+            // (they can never be a placement origin).
+            const seen = new Set();
+            points = points.filter(p => {
+              const k = p.x + ',' + p.y + ',' + p.z;
+              if (seen.has(k)) return false;
+              seen.add(k);
+              return !placed.some(q => p.x >= q.x && p.x < q.x + q.l && p.y >= q.y && p.y < q.y + q.w && p.z >= q.z && p.z < q.z + q.h);
+            });
+            currentWeight += item.wt;
+            currentVol += item.vol;
+            itemsInThisBox[item.sku] = (itemsInThisBox[item.sku] || 0) + 1;
+            return true;
+          }
         }
+        return false;
+      };
+
+      for (let item of unassigned) {
+        if (!tryPlace(item)) remainingUnassigned.push(item);
       }
 
-      // If nothing fit, force at least one item into a custom oversized box to avoid infinite loop
+      // Nothing fit: force the largest remaining item in alone so the loop always advances.
       if (Object.keys(itemsInThisBox).length === 0 && unassigned.length > 0) {
         const forced = unassigned[0];
-        itemsInThisBox[forced.sku] = 1;
+        const [l, w, h] = orientations(forced)[0];
+        placed.push({ x: 0, y: 0, z: 0, l, w, h });
         currentWeight = chosenBox.tare + forced.wt;
         currentVol = forced.vol;
+        itemsInThisBox[forced.sku] = 1;
         remainingUnassigned.shift();
       }
 
@@ -1224,7 +1261,7 @@ function calculatePacking() {
         count: itemsInThisBox[sku]
       }));
 
-      const util = Math.min(98, Math.round((currentVol / boxVol) * 100));
+      const util = Math.min(99, Math.round((currentVol / boxVol) * 100));
 
       boxesPacked.push({
         boxName: chosenBox.name,
