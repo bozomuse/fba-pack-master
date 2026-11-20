@@ -16,6 +16,9 @@ Fixes, against original/index.html:
 Also fixed: Euro pallet selection was ignored (math always used GMA 48x40).
 R36 (Nov 20 2026): consolidated packing swapped from volume-sum greedy
 (82% fudge) to extreme-point first-fit decreasing with real 3D placement.
+R37-R39 (Nov 20 2026): click a carton card for a detail modal: dimensions,
+contents and a top-down SVG layout drawn from the real placement data
+(consolidated cuboids, case-pack layer grid).
 """
 import pathlib
 
@@ -752,6 +755,190 @@ _NEW_CONSOLIDATED = """  } else {
   }
 """
 html = html[:_s] + _NEW_CONSOLIDATED + html[_e:]
+
+# --- R37: store placement/layout data per carton for the detail view ---
+# Consolidated: tag each placed cuboid with its SKU and keep the array on the box.
+rep("placed.push({ x: pt.x, y: pt.y, z: pt.z, l, w, h });",
+          "placed.push({ sku: item.sku, x: pt.x, y: pt.y, z: pt.z, l, w, h });")
+rep("placed.push({ x: 0, y: 0, z: 0, l, w, h });",
+          "placed.push({ sku: forced.sku, x: 0, y: 0, z: 0, l, w, h });")
+rep("""        items: itemsSummary,
+        mode: 'Consolidated Mixed'""",
+          """        items: itemsSummary,
+        placed,
+        mode: 'Consolidated Mixed'""")
+# Case-pack: record the winning layer orientation so the detail view can draw it.
+rep("""      while (remainingQty > 0) {
+        const countThisBox = Math.min(remainingQty, maxUnitsPerBox);""",
+          """      // Winning layer orientation for the detail-view drawing.
+      const layerFits = [
+        { cols: Math.floor(bestBox.l / item.l), rows: Math.floor(bestBox.w / item.w), il: item.l, iw: item.w, ih: item.h },
+        { cols: Math.floor(bestBox.l / item.w), rows: Math.floor(bestBox.w / item.l), il: item.w, iw: item.l, ih: item.h },
+        { cols: Math.floor(bestBox.l / item.h), rows: Math.floor(bestBox.w / item.w), il: item.h, iw: item.w, ih: item.l },
+      ];
+      layerFits.sort((a, b) => (b.cols * b.rows) - (a.cols * a.rows));
+      const bestLayer = layerFits[0];
+      const caseLayout = { sku: item.sku, itemL: bestLayer.il, itemW: bestLayer.iw, itemH: item.h, cols: bestLayer.cols, rows: bestLayer.rows, layers: Math.max(1, Math.floor(bestBox.h / bestLayer.ih)) };
+
+      while (remainingQty > 0) {
+        const countThisBox = Math.min(remainingQty, maxUnitsPerBox);""")
+rep("""          items: packedItems,
+          mode: 'Case-Pack (Single SKU)'""",
+          """          items: packedItems,
+          layout: caseLayout,
+          mode: 'Case-Pack (Single SKU)'""")
+
+# --- R38: clickable cards + detail modal (CSS + HTML) ---
+rep(""".box-card:hover {
+  border-color: #4b5563;
+}""",
+          """.box-card {
+  cursor: pointer;
+}
+.box-card:hover {
+  border-color: #3b82f6;
+}
+.box-card:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+.box-modal-panel {
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  width: 92%;
+  max-width: 600px;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 16px;
+}
+.box-svg {
+  width: 100%;
+  height: auto;
+  max-height: 340px;
+  background: #0f172a;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+}""")
+rep("""      <div class="panel-title" style="margin-top:10px; font-size:12px;">Carton Breakdown (<span id="totalBoxCountLabel">0</span> Cartons)</div>""",
+          """      <div class="panel-title" style="margin-top:10px; font-size:12px;">Carton Breakdown (<span id="totalBoxCountLabel">0</span> Cartons)</div>
+      <div style="font-size:11px; color:var(--text-muted); margin:2px 0 8px;">Click any carton to see its dimensions, contents, and packing layout.</div>""")
+rep("""<div id="toast" role="status" aria-live="polite"></div>""",
+          """<!-- Carton detail modal -->
+<div id="boxModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; justify-content:center; align-items:center;">
+  <div class="box-modal-panel">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <h3 id="boxModalTitle" style="font-size:14px; color:var(--primary);"></h3>
+      <button class="icon-del" id="btnCloseBoxModal" style="font-size:18px; color:var(--text-muted);">&times;</button>
+    </div>
+    <div id="boxModalBody"></div>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>""")
+
+# --- R39: carton detail view logic ---
+rep("""function calculatePacking() {""",
+          """function calculatePacking() {
+  closeBoxDetail(); // a recalc invalidates any open carton detail""")
+rep("""    const card = document.createElement('div');
+    card.className = 'box-card';""",
+          """    const card = document.createElement('div');
+    card.className = 'box-card';
+    card.dataset.idx = i;
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
+    card.setAttribute('aria-label', `Carton ${i + 1} details`);""")
+rep("""// --- Manifest Copy & 2D Barcode CSV Export ---""",
+          """// --- Carton detail view (click a carton card) ---
+const BOX_COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+const skuColor = (sku, box) => {
+  const skus = [...new Set(box.items.map(it => it.sku))];
+  return BOX_COLORS[Math.max(0, skus.indexOf(sku)) % BOX_COLORS.length];
+};
+const skuShort = (sku) => sku.split('-')[0];
+const escHtml = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function boxLayoutSvg(box) {
+  const L = box.l, W = box.w;
+  const fs = Math.max(0.9, Math.min(L, W) / 14);
+  let rects = `<rect x="0" y="0" width="${L}" height="${W}" fill="#1e293b" stroke="#64748b" stroke-width="0.15"/>`;
+  if (box.placed && box.placed.length) {
+    rects += box.placed.map(p => {
+      const fill = skuColor(p.sku, box);
+      const label = `${skuShort(p.sku)} z${fmtLenShort(p.z)}`;
+      const showLabel = p.l > 2 && p.w > 1.2;
+      return `<rect x="${p.x}" y="${p.y}" width="${p.l}" height="${p.w}" fill="${fill}" fill-opacity="0.55" stroke="${fill}" stroke-width="0.12"><title>${escHtml(p.sku)} ${fmtLen(p.l)} x ${fmtLen(p.w)} at ${fmtLenShort(p.z)} high</title></rect>` +
+        (showLabel ? `<text x="${p.x + p.l / 2}" y="${p.y + p.w / 2}" font-size="${fs}" text-anchor="middle" dominant-baseline="middle" fill="#fff">${escHtml(label)}</text>` : '');
+    }).join('');
+  } else if (box.layout) {
+    const lay = box.layout;
+    const fill = skuColor(lay.sku, box);
+    for (let r = 0; r < lay.rows; r++) {
+      for (let c = 0; c < lay.cols; c++) {
+        rects += `<rect x="${c * lay.itemL}" y="${r * lay.itemW}" width="${lay.itemL}" height="${lay.itemW}" fill="${fill}" fill-opacity="0.55" stroke="${fill}" stroke-width="0.12"/>`;
+      }
+    }
+    if (lay.cols > 0 && lay.rows > 0) {
+      rects += `<text x="${L / 2}" y="${W / 2}" font-size="${fs * 1.4}" text-anchor="middle" dominant-baseline="middle" fill="#fff">${escHtml(skuShort(lay.sku))} &times; ${lay.layers} layer${lay.layers === 1 ? '' : 's'}</text>`;
+    }
+  }
+  return `<svg class="box-svg" viewBox="0 0 ${L} ${W}" role="img" aria-label="Top-down packing layout">${rects}</svg>`;
+}
+
+function openBoxDetail(idx) {
+  const box = state.packingResult && state.packingResult.boxes[idx];
+  if (!box) return;
+  document.getElementById('boxModalTitle').textContent = `Carton #${idx + 1} \\u2014 ${box.boxName}`;
+  const rows = box.items.map(it => {
+    const inv = state.inventory.find(x => x.sku === it.sku);
+    const dims = inv ? `${fmtLen(inv.l)} \\u00d7 ${fmtLen(inv.w)} \\u00d7 ${fmtLen(inv.h)} each` : (it.l ? `${fmtLen(it.l)} \\u00d7 ${fmtLen(it.w)} \\u00d7 ${fmtLen(it.h)} each` : '');
+    const wt = inv ? fmtWt(inv.wt) : (it.wt ? fmtWt(it.wt) : '');
+    const detail = [dims, wt].filter(Boolean).join(', ');
+    return `<div class="box-item-row"><span style="font-family:var(--font-mono); color:var(--text);">${escHtml(it.sku)}${detail ? ` <span style="color:var(--text-muted); font-weight:400;">(${detail})</span>` : ''}</span><span style="font-weight:700; color:var(--primary);">${it.count} units</span></div>`;
+  }).join('');
+  const legend = box.items.map(it => `<span style="display:inline-flex; align-items:center; gap:4px; margin-right:10px;"><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:${skuColor(it.sku, box)};"></span>${escHtml(skuShort(it.sku))} (${it.count})</span>`).join('');
+  const layerNote = box.placed
+    ? 'Top-down view. Each rectangle is one unit; the z number is the height where it sits in the carton.'
+    : (box.layout ? `Top-down view of one layer (${box.layout.cols} \\u00d7 ${box.layout.rows} units), stacked ${box.layout.layers} layer${box.layout.layers === 1 ? '' : 's'} high.` : '');
+  document.getElementById('boxModalBody').innerHTML = `
+    <div class="box-details" style="margin-bottom:10px;">
+      <span>Dimensions: <b>${fmtLen(box.l)} \\u00d7 ${fmtLen(box.w)} \\u00d7 ${fmtLen(box.h)}</b></span>
+      <span>Gross Weight: <b>${fmtWt(box.weight)}</b></span>
+      <span>Space Utilization: <b>${box.utilization}%</b></span>
+      <span>Packing Mode: <b>${box.mode}</b></span>
+    </div>
+    ${boxLayoutSvg(box)}
+    <div style="font-size:11px; color:var(--text-muted); margin:6px 0 10px;">${layerNote}</div>
+    <div class="box-items-list">${rows}</div>
+    <div style="font-size:11px; color:var(--text-muted); margin-top:8px;">${legend}</div>`;
+  document.getElementById('boxModal').style.display = 'flex';
+}
+
+function closeBoxDetail() {
+  const m = document.getElementById('boxModal');
+  if (m) m.style.display = 'none';
+}
+
+boxListContainer.addEventListener('click', (e) => {
+  const card = e.target.closest('.box-card');
+  if (card) openBoxDetail(+card.dataset.idx);
+});
+boxListContainer.addEventListener('keydown', (e) => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('box-card')) {
+    e.preventDefault();
+    openBoxDetail(+e.target.dataset.idx);
+  }
+});
+document.getElementById('btnCloseBoxModal').addEventListener('click', closeBoxDetail);
+document.getElementById('boxModal').addEventListener('click', (e) => {
+  if (e.target.id === 'boxModal') closeBoxDetail();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeBoxDetail();
+});
+
+// --- Manifest Copy & 2D Barcode CSV Export ---""")
 
 DST.write_text(html)
 # Repo-root copy: the fixed app itself, so GitHub Pages serves it at /.

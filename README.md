@@ -43,6 +43,17 @@ Bankr's own fork button is turned off per their docs, so this is a source fork.
    even when Euro was selected. Euro now uses 47x31 in and its own label;
    Ti/Hi changes accordingly (sample: GMA 16x8, Euro 9x8).
 
+## Carton detail view (added Nov 20 2026)
+
+Click any carton card (or focus it and press Enter/Space) to open a detail
+modal for just that carton. It shows the dimensions, gross weight,
+utilization, and packing mode as text, the full contents list with each
+SKU's dimensions and weight, and a top-down layout image (inline SVG)
+drawn from the real placement data: one rectangle per unit, colored by
+SKU, labeled with the height where it sits in the carton. Case-pack
+cartons draw one layer as a grid and state the layer count. Close with
+the X button, by clicking the backdrop, with Escape, or by recalculating.
+
 ## Box math (swapped in Nov 20 2026)
 
 Consolidated mode used to sum volumes and cap at 82% of box volume, with no
@@ -60,12 +71,14 @@ volume / weight / orientation counts, 7 cartons on the sample).
 ## Verified
 
 - `node test.mjs original`: all 5 bug-reproduction checks pass (bugs confirmed present).
-- `node test.mjs fixed`: 31/31 checks pass, including imperial/metric parity
+- `node test.mjs fixed`: 47/47 checks pass, including imperial/metric parity
   (same 43 cartons, 244 lbs = 110.5 kg), case-pack toggle (7 cartons),
   all four copy paths (Bankr / clipboard / execCommand / total failure),
   CSV staying imperial, auto-recalc on add/edit, Euro Ti change, an
-  imperial round trip after metric edits, and placement sanity (units
-  conserved, no carton over 50 lbs, no utilization over 99%).
+  imperial round trip after metric edits, placement sanity (units
+  conserved, no carton over 50 lbs, no utilization over 99%), and the
+  carton detail view (open/close/Escape/recalc-close, SVG layout with
+  one rect per placed unit, case-pack layer grid).
 - JS syntax checked with `node --check`; no references remain to the removed
   select element ids. Not yet clicked through in a live browser; the
   headless run covers the same interactions, and the toggle buttons are the
