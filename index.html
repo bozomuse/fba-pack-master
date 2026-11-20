@@ -1,0 +1,1493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Amazon FBA Box & Freight Packer</title>
+<style>
+:root {
+  --bg: #0b0f19;
+  --surface: #111827;
+  --surface-hover: #1f2937;
+  --surface-border: #374151;
+  --primary: #f59e0b;
+  --primary-hover: #d97706;
+  --primary-glow: rgba(245, 158, 11, 0.2);
+  --accent: #3b82f6;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --text: #f3f4f6;
+  --text-muted: #9ca3af;
+  --text-dim: #6b7280;
+  --card-bg: #182234;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 16px;
+  min-height: 100vh;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--surface-border);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.brand-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.brand-badge {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #000;
+  font-weight: 800;
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+h1 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+.subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn {
+  background: var(--surface-hover);
+  color: var(--text);
+  border: 1px solid var(--surface-border);
+  padding: 7px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+.btn:hover { background: var(--surface-border); border-color: #4b5563; }
+.btn-primary {
+  background: var(--primary);
+  color: #111827;
+  border-color: var(--primary);
+}
+.btn-primary:hover {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+.btn-accent {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.btn-accent:hover { background: #2563eb; }
+
+.grid {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 18px;
+}
+@media (max-width: 900px) {
+  .grid { grid-template-columns: 1fr; }
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.panel-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--primary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+select, input[type="text"], input[type="number"], textarea {
+  background: #0b0f19;
+  border: 1px solid var(--surface-border);
+  color: var(--text);
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+select:focus, input:focus, textarea:focus {
+  border-color: var(--primary);
+}
+
+.toggle-group {
+  display: flex;
+  background: #0b0f19;
+  padding: 3px;
+  border-radius: 6px;
+  border: 1px solid var(--surface-border);
+}
+.toggle-btn {
+  flex: 1;
+  text-align: center;
+  padding: 6px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all 0.15s;
+  border: none;
+  background: transparent;
+}
+.toggle-btn.active {
+  background: var(--surface-border);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.upload-zone {
+  border: 2px dashed var(--surface-border);
+  border-radius: 8px;
+  padding: 14px;
+  text-align: center;
+  cursor: pointer;
+  background: rgba(17, 24, 39, 0.4);
+  transition: all 0.2s;
+}
+.upload-zone:hover, .upload-zone.dragover {
+  border-color: var(--primary);
+  background: rgba(245, 158, 11, 0.05);
+}
+.upload-zone p {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--surface-border);
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+}
+.tab-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.tab-btn.active {
+  background: var(--card-bg);
+  color: var(--primary);
+  border: 1px solid var(--surface-border);
+}
+
+.table-wrap {
+  overflow-x: auto;
+  border-radius: 6px;
+  border: 1px solid var(--surface-border);
+  background: #0c111d;
+  max-height: 280px;
+  overflow-y: auto;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  text-align: left;
+}
+th {
+  background: #141b2b;
+  color: var(--text-muted);
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--surface-border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+td {
+  padding: 6px 10px;
+  border-bottom: 1px solid #1f293d;
+  color: var(--text);
+}
+tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+.table-input {
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text);
+  padding: 4px 6px;
+  font-size: 12px;
+  border-radius: 4px;
+}
+.table-input:focus {
+  background: #0b0f19;
+  border-color: var(--primary);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.stat-card {
+  background: var(--card-bg);
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+}
+.stat-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.stat-val {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text);
+  margin-top: 2px;
+  font-family: var(--font-mono);
+}
+.stat-sub {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.box-card {
+  background: var(--card-bg);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  transition: border-color 0.15s;
+}
+.box-card:hover {
+  border-color: #4b5563;
+}
+.box-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.box-title {
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+.badge-ok { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); }
+.badge-warn { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+.badge-danger { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+
+.box-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: rgba(11, 15, 25, 0.6);
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+.box-details span b { color: var(--text); }
+
+.box-items-list {
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.box-item-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 6px;
+  background: rgba(255,255,255,0.02);
+  border-radius: 4px;
+}
+
+.pallet-card {
+  background: linear-gradient(180deg, #18263e 0%, #111a2c 100%);
+  border: 1px solid #2d4168;
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+.pallet-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.pallet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  font-size: 11px;
+}
+
+.notice-box {
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  margin-bottom: 10px;
+}
+.notice-warn {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
+}
+.notice-info {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #93c5fd;
+}
+.notice-danger {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+.custom-box-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr 28px;
+  gap: 4px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.icon-del {
+  color: var(--danger);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  text-align: center;
+}
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%) translateY(20px);
+  background: #182234;
+  border: 1px solid var(--surface-border);
+  color: var(--text);
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.25s ease;
+  z-index: 1000;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  max-width: 90vw;
+  text-align: center;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.error { border-color: var(--danger); color: #fca5a5; }
+#toast.success { border-color: var(--success); color: #a7f3d0; }
+.toggle-group { flex-wrap: wrap; }
+.toggle-group .toggle-btn { line-height: 1.35; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand-title">
+    <span class="brand-badge">AMAZON FBA</span>
+    <div>
+      <h1>Carton & Freight Packing Optimizer</h1>
+      <div class="subtitle">SPD 25" / 50lb Rule Compliance, Case Packing & LTL Palletizer</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <button class="btn" id="btnSample">Load Sample Catalog</button>
+    <button class="btn btn-primary" id="btnCalculate">Calculate Packing Plan</button>
+  </div>
+</header>
+
+<div class="grid">
+  <!-- Left Control Sidebar -->
+  <div class="panel">
+    <div class="panel-title">1. Shipping Mode</div>
+
+    <div class="form-group">
+      <label>Fulfillment Channel</label>
+      <div class="toggle-group">
+        <button class="toggle-btn active" id="modeSpd">Small Parcel (SPD)</button>
+        <button class="toggle-btn" id="modeFreight">Freight / LTL Pallet</button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Packing Strategy</label>
+      <div class="toggle-group">
+        <button class="toggle-btn active" id="stratConsolidated">Consolidated Mixed SKUs</button>
+        <button class="toggle-btn" id="stratCasepack">Case-Packed (Single SKU)</button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Measurement Units</label>
+      <div class="toggle-group">
+        <button class="toggle-btn active" id="unitImperial">Inches & Lbs</button>
+        <button class="toggle-btn" id="unitMetric">CM & KG</button>
+      </div>
+    </div>
+
+    <div class="panel-title" style="margin-top:6px;">2. Carton Dimensions</div>
+
+    <div class="form-group">
+      <label>Box Selection Source</label>
+      <div class="toggle-group">
+        <button class="toggle-btn active" id="boxSrcStandard">Amazon Standard Boxes</button>
+        <button class="toggle-btn" id="boxSrcWarehouse">Warehouse Flock</button>
+        <button class="toggle-btn" id="boxSrcAutosize">Auto-Calculate Size</button>
+      </div>
+    </div>
+
+    <div id="warehouseFlockSection" style="display:none;">
+      <label style="margin-bottom:4px; display:block;">Your Box Flock (L x W x H | Tare | Max Wt)</label>
+      <div id="customBoxList">
+        <!-- Rendered dynamically -->
+      </div>
+      <button class="btn" id="btnAddCustomBox" style="width:100%; margin-top:6px; font-size:11px;">+ Add Box Size</button>
+    </div>
+
+    <div id="freightSettingsSection" style="display:none;">
+      <div class="panel-title" style="margin-top:6px; color:#60a5fa;">3. Freight / LTL Pallet Rules</div>
+      <div class="form-group">
+        <label>Pallet Base Standard</label>
+        <div class="toggle-group">
+          <button class="toggle-btn active" id="palletGma">GMA 48" x 40"</button>
+          <button class="toggle-btn" id="palletEuro">Euro 120 x 80 cm</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Max Pallet Height (Inc. 6" Pallet)</label>
+        <div class="toggle-group">
+          <button class="toggle-btn active" id="palletH72">72 in (Standard)</button>
+          <button class="toggle-btn" id="palletH60">60 in (Stackable)</button>
+          <button class="toggle-btn" id="palletH50">50 in (Heavy)</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Max Pallet Weight</label>
+        <input type="number" id="palletMaxWeight" value="1500" min="500" max="2200" step="50">
+        <span id="palletCeilingNote" style="font-size:10px; color:var(--text-dim);">Amazon FBA absolute ceiling: 1,500 lbs</span>
+      </div>
+    </div>
+
+    <div class="panel-title" style="margin-top:6px;">4. Amazon Guardrails</div>
+    <div style="font-size:11px; color:var(--text-muted); display:flex; flex-direction:column; gap:4px;">
+      <div>• Max carton side: <b id="ruleSide">25.0 in</b> (unless single oversize)</div>
+      <div>• Max carton weight: <b id="ruleWeight">50.0 lbs</b> (team lift required &gt;50)</div>
+      <div>• Min carton size: <b id="ruleMinSize">6" x 4" x 1"</b> (for Amazon barcodes)</div>
+    </div>
+  </div>
+
+  <!-- Right Content Area -->
+  <div style="display: flex; flex-direction: column; gap: 14px;">
+    <!-- Inventory Input Table / Sheet Tab -->
+    <div class="panel">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="panel-title">Product Inventory & Dimensions</div>
+        <div style="display:flex; gap:6px;">
+          <button class="btn" id="btnPasteExcel" title="Paste tab-delimited text from Excel">Paste from Excel</button>
+          <button class="btn" id="btnAddRow">+ Add SKU</button>
+          <button class="btn" id="btnClearTable" style="color:var(--danger);">Clear</button>
+        </div>
+      </div>
+
+      <div class="upload-zone" id="dropZone">
+        <strong>Drop Excel / CSV file here</strong> or click to upload
+        <p>Columns: SKU / Title, Length, Width, Height, Weight, Quantity</p>
+        <input type="file" id="fileInput" accept=".csv, .txt, .tsv" style="display:none;">
+      </div>
+
+      <div class="table-wrap">
+        <table id="inventoryTable">
+          <thead>
+            <tr>
+              <th style="width:26%;">SKU / Title</th>
+              <th style="width:12%;">Length (<span class="unit-len">in</span>)</th>
+              <th style="width:12%;">Width (<span class="unit-len">in</span>)</th>
+              <th style="width:12%;">Height (<span class="unit-len">in</span>)</th>
+              <th style="width:14%;">Weight (<span class="unit-wt">lbs</span>)</th>
+              <th style="width:12%;">Qty</th>
+              <th style="width:6%;"></th>
+            </tr>
+          </thead>
+          <tbody id="inventoryTbody">
+            <!-- Dynamic Rows -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Output Section -->
+    <div class="panel" id="resultsPanel" style="display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="panel-title" style="color:#10b981;">Optimized Packing Output</div>
+        <div style="display:flex; gap:6px;">
+          <button class="btn" id="btnCopyManifest">Copy Box Manifest</button>
+          <button class="btn" id="btnCopyCsv">Copy CSV</button>
+          <button class="btn btn-accent" id="btnExportCsv">Download Amazon 2D CSV</button>
+        </div>
+      </div>
+
+      <!-- Alert banners -->
+      <div id="warningBanners"></div>
+
+      <!-- Summary Stats -->
+      <div class="stats-grid" id="statsGrid">
+        <!-- Rendered Dynamically -->
+      </div>
+
+      <!-- Freight / Pallet Output (if freight mode) -->
+      <div id="palletContainer" style="display:none;"></div>
+
+      <!-- Carton Breakdown List -->
+      <div class="panel-title" style="margin-top:10px; font-size:12px;">Carton Breakdown (<span id="totalBoxCountLabel">0</span> Cartons)</div>
+      <div id="boxListContainer"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal for Excel Paste -->
+<div id="pasteModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:999; justify-content:center; align-items:center;">
+  <div style="background:var(--surface); border:1px solid var(--surface-border); border-radius:8px; width:90%; max-width:540px; padding:18px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h3 style="font-size:14px; color:var(--primary);">Paste Columns from Excel / Google Sheets</h3>
+      <button class="icon-del" id="btnCloseModal" style="font-size:18px; color:var(--text-muted);">&times;</button>
+    </div>
+    <p style="font-size:11px; color:var(--text-muted); margin-bottom:10px;">
+      Copy your rows directly from Excel and paste below. Expected order: <b>SKU, Length, Width, Height, Weight, Quantity</b> (header row is automatically detected and skipped).
+    </p>
+    <textarea id="pasteTextarea" rows="8" style="width:100%; margin-bottom:12px; font-family:var(--font-mono); font-size:11px;" placeholder="SKU-001	8.5	4.0	2.5	0.75	40&#10;SKU-002	12.0	8.0	3.0	1.50	25"></textarea>
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+      <button class="btn" id="btnCancelPaste">Cancel</button>
+      <button class="btn btn-primary" id="btnApplyPaste">Import Rows</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+// --- State Management ---
+const state = {
+  mode: 'spd', // 'spd' | 'freight'
+  strategy: 'consolidated', // 'consolidated' | 'casepack'
+  units: 'imperial', // 'imperial' | 'metric'
+  boxSelection: 'standard', // 'standard' | 'warehouse' | 'autosize'
+  inventory: [],
+  customBoxes: [
+    { name: "Small Carton", l: 12, w: 10, h: 8, tare: 0.8, maxWt: 50 },
+    { name: "Medium Box", l: 16, w: 12, h: 12, tare: 1.2, maxWt: 50 },
+    { name: "Standard 24", l: 24, w: 18, h: 16, tare: 1.8, maxWt: 50 },
+    { name: "Max SPD Box", l: 24, w: 24, h: 24, tare: 2.2, maxWt: 50 }
+  ],
+  pallet: {
+    standard: 'gma',
+    maxHeight: 72,
+    maxWeight: 1500
+  },
+  packingResult: null
+};
+
+// Standard Amazon box catalogue (in inches)
+const standardAmazonBoxes = [
+  { name: "Carton S1", l: 12, w: 10, h: 8, tare: 0.7, maxWt: 50 },
+  { name: "Carton M1", l: 16, w: 12, h: 10, tare: 1.0, maxWt: 50 },
+  { name: "Carton M2", l: 18, w: 14, h: 12, tare: 1.4, maxWt: 50 },
+  { name: "Carton L1", l: 22, w: 18, h: 14, tare: 1.8, maxWt: 50 },
+  { name: "Carton Max (24x24x24)", l: 24, w: 24, h: 24, tare: 2.5, maxWt: 50 }
+];
+
+const sampleCatalog = [
+  { sku: "B08-COFFEE-MUG-12OZ", l: 5.5, w: 4.2, h: 4.8, wt: 0.85, qty: 64 },
+  { sku: "B09-YOGA-BLOCK-FOAM", l: 9.0, w: 6.0, h: 4.0, wt: 0.60, qty: 36 },
+  { sku: "B07-KITCHEN-SCALE-PRO", l: 8.5, w: 7.2, h: 1.5, wt: 1.20, qty: 45 },
+  { sku: "B01-SILICONE-SPATULA-SET", l: 11.2, w: 3.5, h: 2.0, wt: 0.45, qty: 80 },
+  { sku: "B03-STAINLESS-TUMBLER", l: 4.0, w: 4.0, h: 8.5, wt: 0.95, qty: 50 }
+];
+
+// --- DOM References ---
+const btnSpd = document.getElementById('modeSpd');
+const btnFreight = document.getElementById('modeFreight');
+const stratConsolidatedBtn = document.getElementById('stratConsolidated');
+const stratCasepackBtn = document.getElementById('stratCasepack');
+const btnImperial = document.getElementById('unitImperial');
+const btnMetric = document.getElementById('unitMetric');
+const boxSrcStandardBtn = document.getElementById('boxSrcStandard');
+const boxSrcWarehouseBtn = document.getElementById('boxSrcWarehouse');
+const boxSrcAutosizeBtn = document.getElementById('boxSrcAutosize');
+const warehouseFlockSection = document.getElementById('warehouseFlockSection');
+const freightSettingsSection = document.getElementById('freightSettingsSection');
+const customBoxList = document.getElementById('customBoxList');
+const btnAddCustomBox = document.getElementById('btnAddCustomBox');
+const inventoryTbody = document.getElementById('inventoryTbody');
+const btnAddRow = document.getElementById('btnAddRow');
+const btnClearTable = document.getElementById('btnClearTable');
+const btnSample = document.getElementById('btnSample');
+const btnCalculate = document.getElementById('btnCalculate');
+const resultsPanel = document.getElementById('resultsPanel');
+const statsGrid = document.getElementById('statsGrid');
+const boxListContainer = document.getElementById('boxListContainer');
+const palletContainer = document.getElementById('palletContainer');
+const warningBanners = document.getElementById('warningBanners');
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const btnPasteExcel = document.getElementById('btnPasteExcel');
+const pasteModal = document.getElementById('pasteModal');
+const btnCloseModal = document.getElementById('btnCloseModal');
+const btnCancelPaste = document.getElementById('btnCancelPaste');
+const btnApplyPaste = document.getElementById('btnApplyPaste');
+const pasteTextarea = document.getElementById('pasteTextarea');
+const btnCopyManifest = document.getElementById('btnCopyManifest');
+const btnExportCsv = document.getElementById('btnExportCsv');
+const btnCopyCsv = document.getElementById('btnCopyCsv');
+
+// --- Unit Conversion ---
+// Canonical internal unit is inches / lbs. Display values convert both
+// ways so the packing math, guardrails and outputs are always correct
+// in either unit system (the original only relabeled the units).
+const CM_PER_IN = 2.54;
+const KG_PER_LB = 0.45359237;
+const isMetric = () => state.units === 'metric';
+function trimNum(v) { return parseFloat(v.toFixed(2)); }
+function lenToDisplay(vIn) { return isMetric() ? Math.round(vIn * CM_PER_IN * 10) / 10 : trimNum(vIn); }
+function wtToDisplay(vLb) { return isMetric() ? Math.round(vLb * KG_PER_LB * 100) / 100 : trimNum(vLb); }
+function lenToStorage(vDisp) { return isMetric() ? vDisp / CM_PER_IN : vDisp; }
+function wtToStorage(vDisp) { return isMetric() ? vDisp / KG_PER_LB : vDisp; }
+function fmtLen(vIn) { return isMetric() ? `${lenToDisplay(vIn)} cm` : `${trimNum(vIn)}"`; }
+function fmtLenShort(vIn) { return isMetric() ? `${lenToDisplay(vIn)}cm` : `${trimNum(vIn)}"`; }
+function fmtWt(vLb) { return isMetric() ? `${wtToDisplay(vLb)} kg` : `${trimNum(vLb)} lbs`; }
+
+// --- Toast feedback ---
+let toastTimer = null;
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.className = 'show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ''; }, 3200);
+}
+
+// --- Clipboard with sandbox fallbacks ---
+// The Bankr iframe runs at null origin, where navigator.clipboard can be
+// blocked with no error surfaced. Prefer the host-mediated bankr.copy(),
+// then navigator.clipboard, then a textarea + execCommand fallback.
+async function copyTextToClipboard(text) {
+  try {
+    if (window.bankr && typeof window.bankr.copy === 'function') {
+      await window.bankr.copy(text);
+      return true;
+    }
+  } catch (e) { /* fall through */ }
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (e) { /* fall through */ }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch (e) { return false; }
+}
+
+// --- Recalculate outputs when inputs change (only if results are shown) ---
+function maybeRecalculate() {
+  if (!state.packingResult) return;
+  if (state.inventory.length === 0) {
+    state.packingResult = null;
+    resultsPanel.style.display = 'none';
+    return;
+  }
+  calculatePacking();
+}
+
+function syncPalletWeightInput() {
+  const el = document.getElementById('palletMaxWeight');
+  if (!el) return;
+  el.value = wtToDisplay(state.pallet.maxWeight);
+  el.step = isMetric() ? '25' : '50';
+  el.min = isMetric() ? 227 : 500;
+  el.max = isMetric() ? 997 : 2200;
+}
+
+function setUnits(u) {
+  if (state.units === u) return;
+  state.units = u;
+  btnImperial.classList.toggle('active', u === 'imperial');
+  btnMetric.classList.toggle('active', u === 'metric');
+  updateUnitLabels();
+  renderInventoryTable();
+  renderCustomBoxes();
+  syncPalletWeightInput();
+  maybeRecalculate();
+}
+
+// --- Unit Labels ---
+function updateUnitLabels() {
+  const isImp = state.units === 'imperial';
+  document.querySelectorAll('.unit-len').forEach(el => el.textContent = isImp ? 'in' : 'cm');
+  document.querySelectorAll('.unit-wt').forEach(el => el.textContent = isImp ? 'lbs' : 'kg');
+  document.getElementById('ruleSide').textContent = isImp ? '25.0 in' : '63.5 cm';
+  document.getElementById('ruleWeight').textContent = isImp ? '50.0 lbs' : '22.6 kg';
+  document.getElementById('ruleMinSize').textContent = isImp ? '6" x 4" x 1"' : '15.2 cm x 10.2 cm x 2.5 cm';
+  document.getElementById('palletCeilingNote').textContent = isImp ? 'Amazon FBA absolute ceiling: 1,500 lbs' : 'Amazon FBA absolute ceiling: 680.4 kg';
+}
+
+// --- Mode Switching ---
+btnSpd.addEventListener('click', () => {
+  state.mode = 'spd';
+  btnSpd.classList.add('active');
+  btnFreight.classList.remove('active');
+  freightSettingsSection.style.display = 'none';
+  maybeRecalculate();
+});
+
+btnFreight.addEventListener('click', () => {
+  state.mode = 'freight';
+  btnFreight.classList.add('active');
+  btnSpd.classList.remove('active');
+  freightSettingsSection.style.display = 'block';
+  maybeRecalculate();
+});
+
+function setStrategy(s) {
+  state.strategy = s;
+  stratConsolidatedBtn.classList.toggle('active', s === 'consolidated');
+  stratCasepackBtn.classList.toggle('active', s === 'casepack');
+  maybeRecalculate();
+}
+stratConsolidatedBtn.addEventListener('click', () => setStrategy('consolidated'));
+stratCasepackBtn.addEventListener('click', () => setStrategy('casepack'));
+
+btnImperial.addEventListener('click', () => setUnits('imperial'));
+btnMetric.addEventListener('click', () => setUnits('metric'));
+
+function setBoxSelection(s) {
+  state.boxSelection = s;
+  boxSrcStandardBtn.classList.toggle('active', s === 'standard');
+  boxSrcWarehouseBtn.classList.toggle('active', s === 'warehouse');
+  boxSrcAutosizeBtn.classList.toggle('active', s === 'autosize');
+  warehouseFlockSection.style.display = s === 'warehouse' ? 'block' : 'none';
+  maybeRecalculate();
+}
+boxSrcStandardBtn.addEventListener('click', () => setBoxSelection('standard'));
+boxSrcWarehouseBtn.addEventListener('click', () => setBoxSelection('warehouse'));
+boxSrcAutosizeBtn.addEventListener('click', () => setBoxSelection('autosize'));
+
+// --- Custom Box Flock Editor ---
+function renderCustomBoxes() {
+  customBoxList.innerHTML = '';
+  state.customBoxes.forEach((b, idx) => {
+    const row = document.createElement('div');
+    row.className = 'custom-box-row';
+    row.innerHTML = `
+      <input type="text" value="${b.name}" class="table-input" style="font-size:11px;" onchange="updateBox(${idx}, 'name', this.value)">
+      <input type="number" value="${lenToDisplay(b.l)}" class="table-input" step="0.5" onchange="updateBox(${idx}, 'l', parseFloat(this.value)||0)">
+      <input type="number" value="${lenToDisplay(b.w)}" class="table-input" step="0.5" onchange="updateBox(${idx}, 'w', parseFloat(this.value)||0)">
+      <input type="number" value="${lenToDisplay(b.h)}" class="table-input" step="0.5" onchange="updateBox(${idx}, 'h', parseFloat(this.value)||0)">
+      <input type="number" value="${wtToDisplay(b.tare)}" class="table-input" step="0.1" onchange="updateBox(${idx}, 'tare', parseFloat(this.value)||0)">
+      <button class="icon-del" onclick="deleteBox(${idx})">&times;</button>
+    `;
+    customBoxList.appendChild(row);
+  });
+}
+
+window.updateBox = (idx, field, val) => {
+  if (!state.customBoxes[idx]) return;
+  if (field === 'l' || field === 'w' || field === 'h') state.customBoxes[idx][field] = lenToStorage(val);
+  else if (field === 'tare') state.customBoxes[idx][field] = wtToStorage(val);
+  else state.customBoxes[idx][field] = val;
+  maybeRecalculate();
+};
+window.deleteBox = (idx) => {
+  state.customBoxes.splice(idx, 1);
+  renderCustomBoxes();
+};
+
+btnAddCustomBox.addEventListener('click', () => {
+  state.customBoxes.push({ name: `Box ${state.customBoxes.length + 1}`, l: 18, w: 14, h: 12, tare: 1.0, maxWt: 50 });
+  renderCustomBoxes();
+});
+renderCustomBoxes();
+
+// --- Freight / Pallet Controls ---
+function setPalletStandard(s) {
+  state.pallet.standard = s;
+  document.getElementById('palletGma').classList.toggle('active', s === 'gma');
+  document.getElementById('palletEuro').classList.toggle('active', s === 'euro');
+  maybeRecalculate();
+}
+document.getElementById('palletGma').addEventListener('click', () => setPalletStandard('gma'));
+document.getElementById('palletEuro').addEventListener('click', () => setPalletStandard('euro'));
+
+function setPalletHeight(h) {
+  state.pallet.maxHeight = h;
+  ['72', '60', '50'].forEach(v => document.getElementById('palletH' + v).classList.toggle('active', parseInt(v) === h));
+  maybeRecalculate();
+}
+document.getElementById('palletH72').addEventListener('click', () => setPalletHeight(72));
+document.getElementById('palletH60').addEventListener('click', () => setPalletHeight(60));
+document.getElementById('palletH50').addEventListener('click', () => setPalletHeight(50));
+
+document.getElementById('palletMaxWeight').addEventListener('change', (e) => {
+  const v = parseFloat(e.target.value);
+  state.pallet.maxWeight = Math.round(wtToStorage(isNaN(v) ? 1500 : v));
+  syncPalletWeightInput();
+  maybeRecalculate();
+});
+
+// --- Inventory Table Rows ---
+function renderInventoryTable() {
+  inventoryTbody.innerHTML = '';
+  state.inventory.forEach((item, idx) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" class="table-input" value="${item.sku}" onchange="updateInventoryItem(${idx}, 'sku', this.value)"></td>
+      <td><input type="number" class="table-input" step="0.1" value="${lenToDisplay(item.l)}" onchange="updateInventoryItem(${idx}, 'l', parseFloat(this.value)||0)"></td>
+      <td><input type="number" class="table-input" step="0.1" value="${lenToDisplay(item.w)}" onchange="updateInventoryItem(${idx}, 'w', parseFloat(this.value)||0)"></td>
+      <td><input type="number" class="table-input" step="0.1" value="${lenToDisplay(item.h)}" onchange="updateInventoryItem(${idx}, 'h', parseFloat(this.value)||0)"></td>
+      <td><input type="number" class="table-input" step="0.01" value="${wtToDisplay(item.wt)}" onchange="updateInventoryItem(${idx}, 'wt', parseFloat(this.value)||0)"></td>
+      <td><input type="number" class="table-input" step="1" min="1" value="${item.qty}" onchange="updateInventoryItem(${idx}, 'qty', parseInt(this.value)||1)"></td>
+      <td style="text-align:center;"><button class="icon-del" onclick="deleteInventoryItem(${idx})">&times;</button></td>
+    `;
+    inventoryTbody.appendChild(tr);
+  });
+}
+
+window.updateInventoryItem = (idx, field, val) => {
+  if (!state.inventory[idx]) return;
+  if (field === 'l' || field === 'w' || field === 'h') state.inventory[idx][field] = lenToStorage(val);
+  else if (field === 'wt') state.inventory[idx][field] = wtToStorage(val);
+  else state.inventory[idx][field] = val;
+  maybeRecalculate();
+};
+window.deleteInventoryItem = (idx) => {
+  state.inventory.splice(idx, 1);
+  renderInventoryTable();
+  maybeRecalculate();
+};
+
+btnAddRow.addEventListener('click', () => {
+  state.inventory.push({ sku: `SKU-${state.inventory.length + 1}`, l: 8, w: 6, h: 4, wt: 1.0, qty: 20 });
+  renderInventoryTable();
+  maybeRecalculate();
+});
+
+btnClearTable.addEventListener('click', () => {
+  state.inventory = [];
+  state.packingResult = null;
+  renderInventoryTable();
+  resultsPanel.style.display = 'none';
+});
+
+btnSample.addEventListener('click', () => {
+  state.inventory = JSON.parse(JSON.stringify(sampleCatalog));
+  renderInventoryTable();
+  calculatePacking();
+});
+
+// --- Excel Paste Modal & Parser ---
+btnPasteExcel.addEventListener('click', () => {
+  pasteModal.style.display = 'flex';
+  pasteTextarea.value = '';
+  pasteTextarea.focus();
+});
+btnCloseModal.addEventListener('click', () => pasteModal.style.display = 'none');
+btnCancelPaste.addEventListener('click', () => pasteModal.style.display = 'none');
+
+btnApplyPaste.addEventListener('click', () => {
+  const text = pasteTextarea.value.trim();
+  if (!text) return;
+  parseDelimitedText(text);
+  pasteModal.style.display = 'none';
+});
+
+function parseDelimitedText(text) {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+  const newItems = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    // split by tabs or commas or semicolons
+    let cols = [];
+    if (lines[i].includes('\t')) {
+      cols = lines[i].split('\t').map(c => c.trim());
+    } else if (lines[i].includes(',')) {
+      cols = lines[i].split(',').map(c => c.trim().replace(/^["']|["']$/g, ''));
+    } else if (lines[i].includes(';')) {
+      cols = lines[i].split(';').map(c => c.trim());
+    } else {
+      cols = lines[i].split(/\s{2,}/).map(c => c.trim());
+    }
+
+    if (cols.length < 2) continue;
+
+    // Check if header row
+    const firstCol = cols[0].toLowerCase();
+    if (i === 0 && (firstCol.includes('sku') || firstCol.includes('title') || firstCol.includes('name') || firstCol.includes('item'))) {
+      continue;
+    }
+
+    const sku = cols[0] || `SKU-${newItems.length + 1}`;
+    const l = lenToStorage(parseFloat(cols[1]) || 6);
+    const w = lenToStorage(parseFloat(cols[2]) || 4);
+    const h = lenToStorage(parseFloat(cols[3]) || 2);
+    const wt = wtToStorage(parseFloat(cols[4]) || 1);
+    const qty = parseInt(cols[5]) || 10;
+
+    newItems.push({ sku, l, w, h, wt, qty });
+  }
+
+  if (newItems.length > 0) {
+    state.inventory = newItems;
+    renderInventoryTable();
+    calculatePacking();
+  }
+}
+
+// --- Drag and Drop File Upload ---
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropZone.classList.add('dragover');
+});
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) {
+    readFile(e.dataTransfer.files[0]);
+  }
+});
+fileInput.addEventListener('change', (e) => {
+  if (e.target.files.length) {
+    readFile(e.target.files[0]);
+  }
+});
+
+function readFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    parseDelimitedText(e.target.result);
+  };
+  reader.readAsText(file);
+}
+
+// --- Packing Algorithm ---
+btnCalculate.addEventListener('click', () => {
+  calculatePacking();
+});
+
+function calculatePacking() {
+  if (state.inventory.length === 0) {
+    alert("Please add at least one product row to calculate.");
+    return;
+  }
+
+  // Choose candidate boxes
+  let availableBoxes = [];
+  if (state.boxSelection === 'warehouse') {
+    availableBoxes = JSON.parse(JSON.stringify(state.customBoxes));
+  } else if (state.boxSelection === 'standard') {
+    availableBoxes = JSON.parse(JSON.stringify(standardAmazonBoxes));
+  } else {
+    // Auto-calculate ideal box size (max 24x24x24)
+    availableBoxes = [
+      { name: "Auto Optimal Carton", l: 24, w: 18, h: 16, tare: 1.5, maxWt: 50 },
+      { name: "Auto Compact Carton", l: 16, w: 12, h: 10, tare: 1.0, maxWt: 50 }
+    ];
+  }
+
+  // Amazon rule limit per carton
+  const MAX_SIDE = 25.0;
+  const MAX_SPD_WT = 50.0; // lbs
+
+  const boxesPacked = [];
+  const warnings = [];
+
+  // Flatten items list
+  const expandedItems = [];
+  state.inventory.forEach(item => {
+    // Check if single unit exceeds 25"
+    if (Math.max(item.l, item.w, item.h) > MAX_SIDE) {
+      warnings.push(`SKU <b>${item.sku}</b> length exceeds ${fmtLen(MAX_SIDE)}. Amazon requires Single-Oversize handling or Freight classification.`);
+    }
+    if (item.wt > MAX_SPD_WT) {
+      warnings.push(`SKU <b>${item.sku}</b> weight exceeds ${fmtWt(MAX_SPD_WT)}. Requires Team Lift label and special LTL routing.`);
+    }
+
+    for (let q = 0; q < item.qty; q++) {
+      expandedItems.push({
+        sku: item.sku,
+        l: item.l,
+        w: item.w,
+        h: item.h,
+        vol: item.l * item.w * item.h,
+        wt: item.wt
+      });
+    }
+  });
+
+  if (state.strategy === 'casepack') {
+    // Case pack mode: Pack each SKU exclusively into uniform cartons
+    state.inventory.forEach(item => {
+      let remainingQty = item.qty;
+      const unitVol = item.l * item.w * item.h;
+
+      // Select best fitting box
+      let bestBox = availableBoxes[0];
+      let maxUnitsPerBox = 1;
+
+      availableBoxes.forEach(b => {
+        // Effective space allowance (accounting for ~85% packing efficiency)
+        const boxVol = b.l * b.w * b.h * 0.85;
+        const countByVol = Math.floor(boxVol / unitVol);
+        const countByWeight = Math.floor((b.maxWt - b.tare) / item.wt);
+        
+        // Geometric fit estimate (orientation check)
+        const fit1 = Math.floor(b.l / item.l) * Math.floor(b.w / item.w) * Math.floor(b.h / item.h);
+        const fit2 = Math.floor(b.l / item.w) * Math.floor(b.w / item.l) * Math.floor(b.h / item.h);
+        const fit3 = Math.floor(b.l / item.h) * Math.floor(b.w / item.w) * Math.floor(b.h / item.l);
+        const maxOrientFit = Math.max(fit1, fit2, fit3, 1);
+
+        const possibleCount = Math.max(1, Math.min(countByVol, countByWeight, maxOrientFit));
+        if (possibleCount > maxUnitsPerBox) {
+          maxUnitsPerBox = possibleCount;
+          bestBox = b;
+        }
+      });
+
+      while (remainingQty > 0) {
+        const countThisBox = Math.min(remainingQty, maxUnitsPerBox);
+        const packedItems = [{ sku: item.sku, count: countThisBox, l: item.l, w: item.w, h: item.h, wt: item.wt }];
+        const netWeight = countThisBox * item.wt;
+        const totalWeight = netWeight + bestBox.tare;
+        const packedVol = countThisBox * unitVol;
+        const boxVol = bestBox.l * bestBox.w * bestBox.h;
+        const utilPct = Math.min(99, Math.round((packedVol / boxVol) * 100));
+
+        boxesPacked.push({
+          boxName: bestBox.name,
+          l: bestBox.l,
+          w: bestBox.w,
+          h: bestBox.h,
+          tare: bestBox.tare,
+          weight: Math.round(totalWeight * 100) / 100,
+          utilization: utilPct,
+          items: packedItems,
+          mode: 'Case-Pack (Single SKU)'
+        });
+
+        remainingQty -= countThisBox;
+      }
+    });
+
+  } else {
+    // Consolidated Mode: 3D heuristic bin packing (Best Fit Decreasing)
+    // Sort items by volume descending
+    expandedItems.sort((a, b) => b.vol - a.vol);
+
+    let unassigned = [...expandedItems];
+
+    while (unassigned.length > 0) {
+      // Pick best box candidate
+      let chosenBox = availableBoxes[0];
+      // Pick box that accommodates the largest remaining items
+      for (let b of availableBoxes) {
+        if (b.l >= unassigned[0].l && b.w >= unassigned[0].w && b.h >= unassigned[0].h) {
+          chosenBox = b;
+          break;
+        }
+      }
+
+      const boxVol = chosenBox.l * chosenBox.w * chosenBox.h;
+      const usableVol = boxVol * 0.82; // 82% realistic mixed pack packing density
+      const maxWeightCapacity = chosenBox.maxWt - chosenBox.tare;
+
+      let currentWeight = chosenBox.tare;
+      let currentVol = 0;
+      const itemsInThisBox = {};
+      const remainingUnassigned = [];
+
+      for (let item of unassigned) {
+        const fitsDims = (item.l <= chosenBox.l && item.w <= chosenBox.w && item.h <= chosenBox.h) ||
+                         (item.l <= chosenBox.w && item.w <= chosenBox.l && item.h <= chosenBox.h) ||
+                         (item.l <= chosenBox.h && item.w <= chosenBox.l && item.h <= chosenBox.w);
+
+        if (fitsDims && (currentWeight + item.wt <= chosenBox.maxWt) && (currentVol + item.vol <= usableVol)) {
+          currentWeight += item.wt;
+          currentVol += item.vol;
+          itemsInThisBox[item.sku] = (itemsInThisBox[item.sku] || 0) + 1;
+        } else {
+          remainingUnassigned.push(item);
+        }
+      }
+
+      // If nothing fit, force at least one item into a custom oversized box to avoid infinite loop
+      if (Object.keys(itemsInThisBox).length === 0 && unassigned.length > 0) {
+        const forced = unassigned[0];
+        itemsInThisBox[forced.sku] = 1;
+        currentWeight = chosenBox.tare + forced.wt;
+        currentVol = forced.vol;
+        remainingUnassigned.shift();
+      }
+
+      unassigned = remainingUnassigned;
+
+      const itemsSummary = Object.keys(itemsInThisBox).map(sku => ({
+        sku,
+        count: itemsInThisBox[sku]
+      }));
+
+      const util = Math.min(98, Math.round((currentVol / boxVol) * 100));
+
+      boxesPacked.push({
+        boxName: chosenBox.name,
+        l: chosenBox.l,
+        w: chosenBox.w,
+        h: chosenBox.h,
+        tare: chosenBox.tare,
+        weight: Math.round(currentWeight * 100) / 100,
+        utilization: util,
+        items: itemsSummary,
+        mode: 'Consolidated Mixed'
+      });
+    }
+  }
+
+  // Calculate Freight / Pallet Configuration
+  let palletData = null;
+  if (state.mode === 'freight') {
+    const isEuro = state.pallet.standard === 'euro';
+    const palletLength = isEuro ? 47 : 48; // inches (Euro 120cm ~ 47")
+    const palletWidth = isEuro ? 31 : 40;  // inches (Euro 80cm ~ 31")
+    const palletBaseHeight = 6; // inches
+    const palletBaseWeight = 45; // lbs (standard wooden pallet)
+    const maxHeight = state.pallet.maxHeight;
+    const maxWeight = state.pallet.maxWeight;
+
+    // Estimate Tier (Ti) and High (Hi)
+    // Assume cartons are placed flat on 48x40 base
+    const avgBoxL = boxesPacked.reduce((a, b) => a + b.l, 0) / boxesPacked.length || 18;
+    const avgBoxW = boxesPacked.reduce((a, b) => a + b.w, 0) / boxesPacked.length || 14;
+    const avgBoxH = boxesPacked.reduce((a, b) => a + b.h, 0) / boxesPacked.length || 12;
+
+    // Ti: cartons per layer
+    const ti1 = Math.floor(palletLength / avgBoxL) * Math.floor(palletWidth / avgBoxW);
+    const ti2 = Math.floor(palletLength / avgBoxW) * Math.floor(palletWidth / avgBoxL);
+    const ti = Math.max(ti1, ti2, 4);
+
+    // Hi: layers high allowed within max height
+    const availableStackHeight = maxHeight - palletBaseHeight;
+    const hi = Math.max(1, Math.floor(availableStackHeight / avgBoxH));
+
+    const cartonsPerPallet = ti * hi;
+    const totalPallets = Math.ceil(boxesPacked.length / cartonsPerPallet);
+
+    // Calculate gross pallet weight
+    const totalCartonWeight = boxesPacked.reduce((sum, b) => sum + b.weight, 0);
+    const avgPalletWeight = Math.round((totalCartonWeight / totalPallets) + palletBaseWeight);
+    const totalShipmentWeight = totalCartonWeight + (totalPallets * palletBaseWeight);
+    const stackHeight = Math.round((hi * avgBoxH) + palletBaseHeight);
+
+    if (stackHeight > maxHeight) {
+      warnings.push(`Pallet height calculated (${fmtLen(stackHeight)}) exceeds selected limit (${fmtLen(maxHeight)}). Reduce layer count.`);
+    }
+    if (avgPalletWeight > maxWeight) {
+      warnings.push(`Pallet weight (${fmtWt(avgPalletWeight)}) exceeds Amazon ${fmtWt(maxWeight)} limit! Requires splitting across additional pallets.`);
+    }
+
+    palletData = {
+      standard: isEuro ? '47" x 31" Euro Pallet' : '48" x 40" GMA Standard Wooden Pallet',
+      palletLabel: isEuro ? 'Euro' : 'GMA',
+      totalPallets,
+      ti,
+      hi,
+      cartonsPerPallet,
+      stackHeight,
+      maxHeight,
+      avgPalletWeight,
+      totalShipmentWeight: Math.round(totalShipmentWeight)
+    };
+  }
+
+  state.packingResult = {
+    boxes: boxesPacked,
+    warnings,
+    pallet: palletData,
+    totalUnits: state.inventory.reduce((a, b) => a + b.qty, 0),
+    totalSkus: state.inventory.length
+  };
+
+  renderResults();
+}
+
+function renderResults() {
+  const res = state.packingResult;
+  if (!res) return;
+
+  resultsPanel.style.display = 'block';
+
+  // Warnings
+  warningBanners.innerHTML = '';
+  if (res.warnings.length > 0) {
+    const banner = document.createElement('div');
+    banner.className = 'notice-box notice-warn';
+    banner.innerHTML = `<strong>Amazon Compliance Alerts:</strong><br>${res.warnings.join('<br>')}`;
+    warningBanners.appendChild(banner);
+  }
+
+  // Summary Metrics
+  const totalBoxes = res.boxes.length;
+  const totalNetWeight = res.boxes.reduce((a, b) => a + b.weight, 0);
+  const avgUtilization = Math.round(res.boxes.reduce((a, b) => a + b.utilization, 0) / (totalBoxes || 1));
+  const isImp = state.units === 'imperial';
+
+  document.getElementById('totalBoxCountLabel').textContent = totalBoxes;
+
+  statsGrid.innerHTML = `
+    <div class="stat-card">
+      <span class="stat-label">Total Cartons</span>
+      <span class="stat-val">${totalBoxes}</span>
+      <span class="stat-sub">${state.strategy === 'casepack' ? 'Case-Packed' : 'Mixed Consolid.'}</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Total Units</span>
+      <span class="stat-val">${res.totalUnits}</span>
+      <span class="stat-sub">${res.totalSkus} Distinct SKUs</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Gross Weight</span>
+      <span class="stat-val">${isImp ? Math.round(totalNetWeight) : wtToDisplay(totalNetWeight).toFixed(1)} ${isImp ? 'lbs' : 'kg'}</span>
+      <span class="stat-sub">Inc. Tare Weight</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Space Utilization</span>
+      <span class="stat-val">${avgUtilization}%</span>
+      <span class="stat-sub">Avg Density Efficiency</span>
+    </div>
+  `;
+
+  // Pallet output
+  if (state.mode === 'freight' && res.pallet) {
+    palletContainer.style.display = 'block';
+    const p = res.pallet;
+    palletContainer.innerHTML = `
+      <div class="pallet-card">
+        <div class="pallet-header">
+          <div style="font-weight:700; color:#93c5fd; font-size:13px; display:flex; align-items:center; gap:8px;">
+            <span>🚢 Amazon LTL Freight Pallet Plan</span>
+            <span class="badge badge-ok">${p.totalPallets} ${p.palletLabel} ${p.totalPallets === 1 ? 'Pallet' : 'Pallets'}</span>
+          </div>
+          <span style="font-size:11px; color:var(--text-muted);">${p.standard}</span>
+        </div>
+        <div class="pallet-grid">
+          <div><span style="color:var(--text-muted);">Tier x High (Ti/Hi):</span> <br><b style="color:#fff;">${p.ti} Ti &times; ${p.hi} Hi (${p.cartonsPerPallet} boxes/plt)</b></div>
+          <div><span style="color:var(--text-muted);">Stack Height:</span> <br><b style="color:#fff;">${fmtLen(p.stackHeight)} / ${fmtLen(p.maxHeight)} Max</b></div>
+          <div><span style="color:var(--text-muted);">Avg Pallet Weight:</span> <br><b style="color:#fff;">${fmtWt(p.avgPalletWeight)}</b></div>
+          <div><span style="color:var(--text-muted);">Total Freight Weight:</span> <br><b style="color:#fff;">${fmtWt(p.totalShipmentWeight)}</b></div>
+        </div>
+      </div>
+    `;
+  } else {
+    palletContainer.style.display = 'none';
+  }
+
+  // Render Box list
+  boxListContainer.innerHTML = '';
+  res.boxes.forEach((box, i) => {
+    const isHeavy = box.weight > 50;
+    const isOversize = Math.max(box.l, box.w, box.h) > 25;
+    const isUnderweight = box.weight < 2;
+
+    const card = document.createElement('div');
+    card.className = 'box-card';
+    card.innerHTML = `
+      <div class="box-header">
+        <div class="box-title">
+          <span>Carton #${i + 1} &mdash; ${box.boxName}</span>
+          ${isHeavy ? '<span class="badge badge-danger">Team Lift (&gt;50 lbs)</span>' : '<span class="badge badge-ok">SPD Compliant</span>'}
+          ${isOversize ? '<span class="badge badge-warn">&gt;25" Oversize</span>' : ''}
+        </div>
+        <div style="font-size:11px; color:var(--text-muted); font-family:var(--font-mono);">
+          ${fmtLen(box.l)} &times; ${fmtLen(box.w)} &times; ${fmtLen(box.h)} | <b>${fmtWt(box.weight)}</b>
+        </div>
+      </div>
+
+      <div class="box-details">
+        <span>Carton Tare: <b>${fmtWt(box.tare)}</b></span>
+        <span>Space Utilization: <b>${box.utilization}%</b></span>
+        <span>Packing Mode: <b>${box.mode}</b></span>
+      </div>
+
+      <div class="box-items-list">
+        ${box.items.map(it => `
+          <div class="box-item-row">
+            <span style="font-family:var(--font-mono); color:var(--text);">${it.sku}</span>
+            <span style="font-weight:700; color:var(--primary);">${it.count} units</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+    boxListContainer.appendChild(card);
+  });
+}
+
+// --- Manifest Copy & 2D Barcode CSV Export ---
+btnCopyManifest.addEventListener('click', async () => {
+  if (!state.packingResult) return;
+  let text = `AMAZON FBA CARTON MANIFEST\n`;
+  text += `Generated: ${new Date().toLocaleDateString()}\n`;
+  text += `Units: ${isMetric() ? 'cm / kg' : 'in / lbs'}\n`;
+  text += `Total Cartons: ${state.packingResult.boxes.length}\n`;
+  text += `Strategy: ${state.strategy}\n`;
+  if (state.packingResult.pallet) {
+    text += `Pallets: ${state.packingResult.pallet.totalPallets} (Ti: ${state.packingResult.pallet.ti}, Hi: ${state.packingResult.pallet.hi})\n`;
+  }
+  text += `--------------------------------------------------\n`;
+
+  state.packingResult.boxes.forEach((b, idx) => {
+    text += `Box #${idx + 1} (${fmtLenShort(b.l)}x${fmtLenShort(b.w)}x${fmtLenShort(b.h)}, ${fmtWt(b.weight)}):\n`;
+    b.items.forEach(it => {
+      text += `  - ${it.sku}: ${it.count} units\n`;
+    });
+  });
+
+  const ok = await copyTextToClipboard(text);
+  if (ok) {
+    const orig = btnCopyManifest.textContent;
+    btnCopyManifest.textContent = 'Copied to Clipboard!';
+    setTimeout(() => btnCopyManifest.textContent = orig, 2000);
+    showToast('Manifest copied to clipboard', 'success');
+  } else {
+    showToast('Copy blocked in this view. Select the manifest text manually.', 'error');
+  }
+});
+
+// Amazon 2D Barcode Box Content CSV. Amazon's format is inches/lbs, so the
+// export stays imperial whatever the display units are.
+function buildBoxCsv() {
+  let csv = "Box Name,Length (in),Width (in),Height (in),Weight (lbs),SKU,Units Packed\n";
+  state.packingResult.boxes.forEach((b, idx) => {
+    b.items.forEach(it => {
+      csv += `"Box ${idx + 1}",${b.l},${b.w},${b.h},${b.weight},"${it.sku}",${it.count}\n`;
+    });
+  });
+  return csv;
+}
+
+btnExportCsv.addEventListener('click', () => {
+  if (!state.packingResult) return;
+  const csv = buildBoxCsv();
+  const filename = `fba-box-manifest-${Date.now()}.csv`;
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(`CSV download started: ${filename} (inches/lbs, Amazon format)`, 'success');
+});
+
+btnCopyCsv.addEventListener('click', async () => {
+  if (!state.packingResult) return;
+  const ok = await copyTextToClipboard(buildBoxCsv());
+  showToast(ok ? 'CSV copied to clipboard (inches/lbs, Amazon format)' : 'Copy blocked in this view.', ok ? 'success' : 'error');
+});
+
+// Initialize Sample on first load
+state.inventory = JSON.parse(JSON.stringify(sampleCatalog));
+renderInventoryTable();
+updateUnitLabels();
+syncPalletWeightInput();
+calculatePacking();
+</script>
+</body>
+</html>

@@ -1,0 +1,635 @@
+#!/usr/bin/env python3
+"""Fork fix for FBA Box & Freight Packer (Bankr app fba-pack-master).
+
+Fixes, against original/index.html:
+ 1. Metric mode: values were relabeled, never converted. Canonical internal
+    unit is now inches/lbs; display converts both ways (inputs, outputs,
+    guardrails, pallet math, manifest). CSV stays imperial (Amazon format).
+ 2. Packing Strategy (and other native <select>s) replaced with the toggle
+    button groups the app already uses for mode/units, which work reliably
+    in the sandboxed iframe. Changing one recalculates when results exist.
+ 3. Copy Manifest / CSV now give toast feedback, use bankr.copy when the
+    Bankr host provides it, and fall back clipboard -> execCommand.
+    Added a Copy CSV button as a guaranteed export path if the sandboxed
+    iframe blocks the file download.
+ 4. Editing inventory / settings auto-recalculates when results are shown.
+Also fixed: Euro pallet selection was ignored (math always used GMA 48x40).
+"""
+import pathlib
+
+SRC = pathlib.Path('/home/hatch/workspace/fba-pack-master/original/index.html')
+DST = pathlib.Path('/home/hatch/workspace/fba-pack-master/fixed/index.html')
+html = SRC.read_text()
+
+
+def rep(old, new, count=1):
+    global html
+    n = html.count(old)
+    assert n == count, f'expected {count}x, found {n}x: {old[:90]!r}'
+    html = html.replace(old, new)
+
+
+# --- R1: toast + toggle CSS ---
+rep("""</style>
+</head>""", """#toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%) translateY(20px);
+  background: #182234;
+  border: 1px solid var(--surface-border);
+  color: var(--text);
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.25s ease;
+  z-index: 1000;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  max-width: 90vw;
+  text-align: center;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.error { border-color: var(--danger); color: #fca5a5; }
+#toast.success { border-color: var(--success); color: #a7f3d0; }
+.toggle-group { flex-wrap: wrap; }
+.toggle-group .toggle-btn { line-height: 1.35; }
+</style>
+</head>""")
+
+# --- R2: strategy select -> toggle group ---
+rep("""    <div class="form-group">
+      <label>Packing Strategy</label>
+      <select id="packingStrategy">
+        <option value="consolidated">Consolidated Mixed SKUs (Fewest Boxes)</option>
+        <option value="casepack">Case-Packed (Uniform Single SKU per Carton)</option>
+      </select>
+    </div>""", """    <div class="form-group">
+      <label>Packing Strategy</label>
+      <div class="toggle-group">
+        <button class="toggle-btn active" id="stratConsolidated">Consolidated Mixed SKUs</button>
+        <button class="toggle-btn" id="stratCasepack">Case-Packed (Single SKU)</button>
+      </div>
+    </div>""")
+
+# --- R3: box source select -> toggle group ---
+rep("""    <div class="form-group">
+      <label>Box Selection Source</label>
+      <select id="boxSelectionMode">
+        <option value="standard">Amazon Standard Compliant Boxes</option>
+        <option value="warehouse">Warehouse Shelf Inventory (Custom Flock)</option>
+        <option value="autosize">Auto-Calculate Ideal Carton Size</option>
+      </select>
+    </div>""", """    <div class="form-group">
+      <label>Box Selection Source</label>
+      <div class="toggle-group">
+        <button class="toggle-btn active" id="boxSrcStandard">Amazon Standard Boxes</button>
+        <button class="toggle-btn" id="boxSrcWarehouse">Warehouse Flock</button>
+        <button class="toggle-btn" id="boxSrcAutosize">Auto-Calculate Size</button>
+      </div>
+    </div>""")
+
+# --- R4: pallet selects -> toggle groups ---
+rep("""      <div class="form-group">
+        <label>Pallet Base Standard</label>
+        <select id="palletStandard">
+          <option value="gma">Standard GMA Pallet (48" x 40" x 6")</option>
+          <option value="euro">Euro Pallet (120cm x 80cm)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Max Pallet Height (Inc. 6" Pallet)</label>
+        <select id="palletMaxHeight">
+          <option value="72">72 Inches (Amazon Standard Limit)</option>
+          <option value="60">60 Inches (Double-Stackable Limit)</option>
+          <option value="50">50 Inches (Heavy / Bulk)</option>
+        </select>
+      </div>""", """      <div class="form-group">
+        <label>Pallet Base Standard</label>
+        <div class="toggle-group">
+          <button class="toggle-btn active" id="palletGma">GMA 48" x 40"</button>
+          <button class="toggle-btn" id="palletEuro">Euro 120 x 80 cm</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Max Pallet Height (Inc. 6" Pallet)</label>
+        <div class="toggle-group">
+          <button class="toggle-btn active" id="palletH72">72 in (Standard)</button>
+          <button class="toggle-btn" id="palletH60">60 in (Stackable)</button>
+          <button class="toggle-btn" id="palletH50">50 in (Heavy)</button>
+        </div>
+      </div>""")
+
+# --- R5: pallet ceiling note gets an id ---
+rep("""<span style="font-size:10px; color:var(--text-dim);">Amazon FBA absolute ceiling: 1,500 lbs</span>""",
+    """<span id="palletCeilingNote" style="font-size:10px; color:var(--text-dim);">Amazon FBA absolute ceiling: 1,500 lbs</span>""")
+
+# --- R6: min carton size gets an id ---
+rep("""<div>• Min carton size: <b>6" x 4" x 1"</b> (for Amazon barcodes)</div>""",
+    """<div>• Min carton size: <b id="ruleMinSize">6" x 4" x 1"</b> (for Amazon barcodes)</div>""")
+
+# --- R7: Copy CSV button ---
+rep("""          <button class="btn" id="btnCopyManifest">Copy Box Manifest</button>
+          <button class="btn btn-accent" id="btnExportCsv">Download Amazon 2D CSV</button>""",
+    """          <button class="btn" id="btnCopyManifest">Copy Box Manifest</button>
+          <button class="btn" id="btnCopyCsv">Copy CSV</button>
+          <button class="btn btn-accent" id="btnExportCsv">Download Amazon 2D CSV</button>""")
+
+# --- R8: toast div ---
+rep("""    </div>
+  </div>
+</div>
+
+<script>""", """    </div>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>""")
+
+# --- R9: DOM refs for removed selects -> toggle buttons + Copy CSV ---
+rep("""const packingStrategySelect = document.getElementById('packingStrategy');""",
+    """const stratConsolidatedBtn = document.getElementById('stratConsolidated');
+const stratCasepackBtn = document.getElementById('stratCasepack');""")
+rep("""const boxSelectionSelect = document.getElementById('boxSelectionMode');""",
+    """const boxSrcStandardBtn = document.getElementById('boxSrcStandard');
+const boxSrcWarehouseBtn = document.getElementById('boxSrcWarehouse');
+const boxSrcAutosizeBtn = document.getElementById('boxSrcAutosize');""")
+rep("""const btnExportCsv = document.getElementById('btnExportCsv');""",
+    """const btnExportCsv = document.getElementById('btnExportCsv');
+const btnCopyCsv = document.getElementById('btnCopyCsv');""")
+
+# --- R10: conversion helpers + toast + copy pipeline + recalc, before Unit Labels ---
+rep("""// --- Unit Labels ---
+function updateUnitLabels() {""", """// --- Unit Conversion ---
+// Canonical internal unit is inches / lbs. Display values convert both
+// ways so the packing math, guardrails and outputs are always correct
+// in either unit system (the original only relabeled the units).
+const CM_PER_IN = 2.54;
+const KG_PER_LB = 0.45359237;
+const isMetric = () => state.units === 'metric';
+function trimNum(v) { return parseFloat(v.toFixed(2)); }
+function lenToDisplay(vIn) { return isMetric() ? Math.round(vIn * CM_PER_IN * 10) / 10 : trimNum(vIn); }
+function wtToDisplay(vLb) { return isMetric() ? Math.round(vLb * KG_PER_LB * 100) / 100 : trimNum(vLb); }
+function lenToStorage(vDisp) { return isMetric() ? vDisp / CM_PER_IN : vDisp; }
+function wtToStorage(vDisp) { return isMetric() ? vDisp / KG_PER_LB : vDisp; }
+function fmtLen(vIn) { return isMetric() ? `${lenToDisplay(vIn)} cm` : `${trimNum(vIn)}"`; }
+function fmtLenShort(vIn) { return isMetric() ? `${lenToDisplay(vIn)}cm` : `${trimNum(vIn)}"`; }
+function fmtWt(vLb) { return isMetric() ? `${wtToDisplay(vLb)} kg` : `${trimNum(vLb)} lbs`; }
+
+// --- Toast feedback ---
+let toastTimer = null;
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.className = 'show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ''; }, 3200);
+}
+
+// --- Clipboard with sandbox fallbacks ---
+// The Bankr iframe runs at null origin, where navigator.clipboard can be
+// blocked with no error surfaced. Prefer the host-mediated bankr.copy(),
+// then navigator.clipboard, then a textarea + execCommand fallback.
+async function copyTextToClipboard(text) {
+  try {
+    if (window.bankr && typeof window.bankr.copy === 'function') {
+      await window.bankr.copy(text);
+      return true;
+    }
+  } catch (e) { /* fall through */ }
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (e) { /* fall through */ }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch (e) { return false; }
+}
+
+// --- Recalculate outputs when inputs change (only if results are shown) ---
+function maybeRecalculate() {
+  if (!state.packingResult) return;
+  if (state.inventory.length === 0) {
+    state.packingResult = null;
+    resultsPanel.style.display = 'none';
+    return;
+  }
+  calculatePacking();
+}
+
+function syncPalletWeightInput() {
+  const el = document.getElementById('palletMaxWeight');
+  if (!el) return;
+  el.value = wtToDisplay(state.pallet.maxWeight);
+  el.step = isMetric() ? '25' : '50';
+  el.min = isMetric() ? 227 : 500;
+  el.max = isMetric() ? 997 : 2200;
+}
+
+function setUnits(u) {
+  if (state.units === u) return;
+  state.units = u;
+  btnImperial.classList.toggle('active', u === 'imperial');
+  btnMetric.classList.toggle('active', u === 'metric');
+  updateUnitLabels();
+  renderInventoryTable();
+  renderCustomBoxes();
+  syncPalletWeightInput();
+  maybeRecalculate();
+}
+
+// --- Unit Labels ---
+function updateUnitLabels() {""")
+
+# --- R11: updateUnitLabels also converts min size + ceiling note ---
+rep("""  document.getElementById('ruleSide').textContent = isImp ? '25.0 in' : '63.5 cm';
+  document.getElementById('ruleWeight').textContent = isImp ? '50.0 lbs' : '22.6 kg';
+}""", """  document.getElementById('ruleSide').textContent = isImp ? '25.0 in' : '63.5 cm';
+  document.getElementById('ruleWeight').textContent = isImp ? '50.0 lbs' : '22.6 kg';
+  document.getElementById('ruleMinSize').textContent = isImp ? '6" x 4" x 1"' : '15.2 cm x 10.2 cm x 2.5 cm';
+  document.getElementById('palletCeilingNote').textContent = isImp ? 'Amazon FBA absolute ceiling: 1,500 lbs' : 'Amazon FBA absolute ceiling: 680.4 kg';
+}""")
+
+# --- R12: mode toggles recalculate (pallet plan depends on mode) ---
+rep("""  if (state.packingResult) renderResults();
+});""", """  maybeRecalculate();
+});""", count=2)
+
+# --- R13: strategy toggle buttons ---
+rep("""packingStrategySelect.addEventListener('change', (e) => {
+  state.strategy = e.target.value;
+});""", """function setStrategy(s) {
+  state.strategy = s;
+  stratConsolidatedBtn.classList.toggle('active', s === 'consolidated');
+  stratCasepackBtn.classList.toggle('active', s === 'casepack');
+  maybeRecalculate();
+}
+stratConsolidatedBtn.addEventListener('click', () => setStrategy('consolidated'));
+stratCasepackBtn.addEventListener('click', () => setStrategy('casepack'));""")
+
+# --- R14: unit toggles use setUnits ---
+rep("""btnImperial.addEventListener('click', () => {
+  if (state.units !== 'imperial') {
+    state.units = 'imperial';
+    btnImperial.classList.add('active');
+    btnMetric.classList.remove('active');
+    updateUnitLabels();
+  }
+});
+
+btnMetric.addEventListener('click', () => {
+  if (state.units !== 'metric') {
+    state.units = 'metric';
+    btnMetric.classList.add('active');
+    btnImperial.classList.remove('active');
+    updateUnitLabels();
+  }
+});""", """btnImperial.addEventListener('click', () => setUnits('imperial'));
+btnMetric.addEventListener('click', () => setUnits('metric'));""")
+
+# --- R15: box source toggle buttons ---
+rep("""boxSelectionSelect.addEventListener('change', (e) => {
+  state.boxSelection = e.target.value;
+  warehouseFlockSection.style.display = state.boxSelection === 'warehouse' ? 'block' : 'none';
+});""", """function setBoxSelection(s) {
+  state.boxSelection = s;
+  boxSrcStandardBtn.classList.toggle('active', s === 'standard');
+  boxSrcWarehouseBtn.classList.toggle('active', s === 'warehouse');
+  boxSrcAutosizeBtn.classList.toggle('active', s === 'autosize');
+  warehouseFlockSection.style.display = s === 'warehouse' ? 'block' : 'none';
+  maybeRecalculate();
+}
+boxSrcStandardBtn.addEventListener('click', () => setBoxSelection('standard'));
+boxSrcWarehouseBtn.addEventListener('click', () => setBoxSelection('warehouse'));
+boxSrcAutosizeBtn.addEventListener('click', () => setBoxSelection('autosize'));""")
+
+# --- R16: custom box editor shows display units ---
+rep("""      <input type="number" value="${b.l}" class="table-input" step="0.5" onchange="updateBox(${idx}, 'l', parseFloat(this.value)||0)">""",
+    """      <input type="number" value="${lenToDisplay(b.l)}" class="table-input" step="0.5" onchange="updateBox(${idx}, 'l', parseFloat(this.value)||0)">""")
+rep("""      <input type="number" value="${b.w}" class="table-input" step="0.5" onchange="updateBox(${idx}, 'w', parseFloat(this.value)||0)">""",
+    """      <input type="number" value="${lenToDisplay(b.w)}" class="table-input" step="0.5" onchange="updateBox(${idx}, 'w', parseFloat(this.value)||0)">""")
+rep("""      <input type="number" value="${b.h}" class="table-input" step="0.5" onchange="updateBox(${idx}, 'h', parseFloat(this.value)||0)">""",
+    """      <input type="number" value="${lenToDisplay(b.h)}" class="table-input" step="0.5" onchange="updateBox(${idx}, 'h', parseFloat(this.value)||0)">""")
+rep("""      <input type="number" value="${b.tare}" class="table-input" step="0.1" onchange="updateBox(${idx}, 'tare', parseFloat(this.value)||0)">""",
+    """      <input type="number" value="${wtToDisplay(b.tare)}" class="table-input" step="0.1" onchange="updateBox(${idx}, 'tare', parseFloat(this.value)||0)">""")
+
+# --- R17: updateBox converts back to imperial ---
+rep("""window.updateBox = (idx, field, val) => {
+  state.customBoxes[idx][field] = val;
+};""", """window.updateBox = (idx, field, val) => {
+  if (!state.customBoxes[idx]) return;
+  if (field === 'l' || field === 'w' || field === 'h') state.customBoxes[idx][field] = lenToStorage(val);
+  else if (field === 'tare') state.customBoxes[idx][field] = wtToStorage(val);
+  else state.customBoxes[idx][field] = val;
+  maybeRecalculate();
+};""")
+
+# --- R18: inventory table shows display units ---
+rep("""      <td><input type="number" class="table-input" step="0.1" value="${item.l}" onchange="updateInventoryItem(${idx}, 'l', parseFloat(this.value)||0)"></td>""",
+    """      <td><input type="number" class="table-input" step="0.1" value="${lenToDisplay(item.l)}" onchange="updateInventoryItem(${idx}, 'l', parseFloat(this.value)||0)"></td>""")
+rep("""      <td><input type="number" class="table-input" step="0.1" value="${item.w}" onchange="updateInventoryItem(${idx}, 'w', parseFloat(this.value)||0)"></td>""",
+    """      <td><input type="number" class="table-input" step="0.1" value="${lenToDisplay(item.w)}" onchange="updateInventoryItem(${idx}, 'w', parseFloat(this.value)||0)"></td>""")
+rep("""      <td><input type="number" class="table-input" step="0.1" value="${item.h}" onchange="updateInventoryItem(${idx}, 'h', parseFloat(this.value)||0)"></td>""",
+    """      <td><input type="number" class="table-input" step="0.1" value="${lenToDisplay(item.h)}" onchange="updateInventoryItem(${idx}, 'h', parseFloat(this.value)||0)"></td>""")
+rep("""      <td><input type="number" class="table-input" step="0.01" value="${item.wt}" onchange="updateInventoryItem(${idx}, 'wt', parseFloat(this.value)||0)"></td>""",
+    """      <td><input type="number" class="table-input" step="0.01" value="${wtToDisplay(item.wt)}" onchange="updateInventoryItem(${idx}, 'wt', parseFloat(this.value)||0)"></td>""")
+
+# --- R19: updateInventoryItem converts back to imperial ---
+rep("""window.updateInventoryItem = (idx, field, val) => {
+  if (state.inventory[idx]) state.inventory[idx][field] = val;
+};""", """window.updateInventoryItem = (idx, field, val) => {
+  if (!state.inventory[idx]) return;
+  if (field === 'l' || field === 'w' || field === 'h') state.inventory[idx][field] = lenToStorage(val);
+  else if (field === 'wt') state.inventory[idx][field] = wtToStorage(val);
+  else state.inventory[idx][field] = val;
+  maybeRecalculate();
+};""")
+
+# --- R20: delete row recalcs ---
+rep("""window.deleteInventoryItem = (idx) => {
+  state.inventory.splice(idx, 1);
+  renderInventoryTable();
+};""", """window.deleteInventoryItem = (idx) => {
+  state.inventory.splice(idx, 1);
+  renderInventoryTable();
+  maybeRecalculate();
+};""")
+
+# --- R21: add row recalcs ---
+rep("""btnAddRow.addEventListener('click', () => {
+  state.inventory.push({ sku: `SKU-${state.inventory.length + 1}`, l: 8, w: 6, h: 4, wt: 1.0, qty: 20 });
+  renderInventoryTable();
+});""", """btnAddRow.addEventListener('click', () => {
+  state.inventory.push({ sku: `SKU-${state.inventory.length + 1}`, l: 8, w: 6, h: 4, wt: 1.0, qty: 20 });
+  renderInventoryTable();
+  maybeRecalculate();
+});""")
+
+# --- R22: clear also drops the stored result ---
+rep("""btnClearTable.addEventListener('click', () => {
+  state.inventory = [];
+  renderInventoryTable();
+  resultsPanel.style.display = 'none';
+});""", """btnClearTable.addEventListener('click', () => {
+  state.inventory = [];
+  state.packingResult = null;
+  renderInventoryTable();
+  resultsPanel.style.display = 'none';
+});""")
+
+# --- R23: pasted/file values are in display units -> convert ---
+rep("""    const sku = cols[0] || `SKU-${newItems.length + 1}`;
+    const l = parseFloat(cols[1]) || 6;
+    const w = parseFloat(cols[2]) || 4;
+    const h = parseFloat(cols[3]) || 2;
+    const wt = parseFloat(cols[4]) || 1;
+    const qty = parseInt(cols[5]) || 10;""", """    const sku = cols[0] || `SKU-${newItems.length + 1}`;
+    const l = lenToStorage(parseFloat(cols[1]) || 6);
+    const w = lenToStorage(parseFloat(cols[2]) || 4);
+    const h = lenToStorage(parseFloat(cols[3]) || 2);
+    const wt = wtToStorage(parseFloat(cols[4]) || 1);
+    const qty = parseInt(cols[5]) || 10;""")
+
+# --- R24: pallet math uses state + honors Euro dimensions ---
+rep("""  let palletData = null;
+  if (state.mode === 'freight') {
+    const palletLength = 48; // inches
+    const palletWidth = 40;  // inches
+    const palletBaseHeight = 6; // inches
+    const palletBaseWeight = 45; // lbs (standard wooden GMA pallet)
+    const maxHeight = parseFloat(document.getElementById('palletMaxHeight').value) || 72;
+    const maxWeight = parseFloat(document.getElementById('palletMaxWeight').value) || 1500;""",
+    """  let palletData = null;
+  if (state.mode === 'freight') {
+    const isEuro = state.pallet.standard === 'euro';
+    const palletLength = isEuro ? 47 : 48; // inches (Euro 120cm ~ 47")
+    const palletWidth = isEuro ? 31 : 40;  // inches (Euro 80cm ~ 31")
+    const palletBaseHeight = 6; // inches
+    const palletBaseWeight = 45; // lbs (standard wooden pallet)
+    const maxHeight = state.pallet.maxHeight;
+    const maxWeight = state.pallet.maxWeight;""")
+
+# --- R25: pallet warnings in display units ---
+rep("""    if (stackHeight > maxHeight) {
+      warnings.push(`Pallet height calculated (${stackHeight}") exceeds selected limit (${maxHeight}"). Reduce layer count.`);
+    }
+    if (avgPalletWeight > maxWeight) {
+      warnings.push(`Pallet weight (${avgPalletWeight} lbs) exceeds Amazon 1,500 lb limit! Requires splitting across additional pallets.`);
+    }""", """    if (stackHeight > maxHeight) {
+      warnings.push(`Pallet height calculated (${fmtLen(stackHeight)}) exceeds selected limit (${fmtLen(maxHeight)}). Reduce layer count.`);
+    }
+    if (avgPalletWeight > maxWeight) {
+      warnings.push(`Pallet weight (${fmtWt(avgPalletWeight)}) exceeds Amazon ${fmtWt(maxWeight)} limit! Requires splitting across additional pallets.`);
+    }""")
+
+# --- R26: pallet data carries its standard label ---
+rep("""    palletData = {
+      standard: '48" x 40" GMA Standard Wooden Pallet',""",
+    """    palletData = {
+      standard: isEuro ? '47" x 31" Euro Pallet' : '48" x 40" GMA Standard Wooden Pallet',
+      palletLabel: isEuro ? 'Euro' : 'GMA',""")
+
+# --- R27: oversize / overweight warnings in display units ---
+rep("""    if (Math.max(item.l, item.w, item.h) > MAX_SIDE) {
+      warnings.push(`SKU <b>${item.sku}</b> length exceeds 25". Amazon requires Single-Oversize handling or Freight classification.`);
+    }
+    if (item.wt > MAX_SPD_WT) {
+      warnings.push(`SKU <b>${item.sku}</b> weight exceeds 50 lbs. Requires Team Lift label and special LTL routing.`);
+    }""", """    if (Math.max(item.l, item.w, item.h) > MAX_SIDE) {
+      warnings.push(`SKU <b>${item.sku}</b> length exceeds ${fmtLen(MAX_SIDE)}. Amazon requires Single-Oversize handling or Freight classification.`);
+    }
+    if (item.wt > MAX_SPD_WT) {
+      warnings.push(`SKU <b>${item.sku}</b> weight exceeds ${fmtWt(MAX_SPD_WT)}. Requires Team Lift label and special LTL routing.`);
+    }""")
+
+# --- R28: gross weight stat converts ---
+rep("""      <span class="stat-val">${Math.round(totalNetWeight)} ${isImp ? 'lbs' : 'kg'}</span>""",
+    """      <span class="stat-val">${isImp ? Math.round(totalNetWeight) : wtToDisplay(totalNetWeight).toFixed(1)} ${isImp ? 'lbs' : 'kg'}</span>""")
+
+# --- R29: pallet output converts ---
+rep("""            <span class="badge badge-ok">${p.totalPallets} GMA ${p.totalPallets === 1 ? 'Pallet' : 'Pallets'}</span>""",
+    """            <span class="badge badge-ok">${p.totalPallets} ${p.palletLabel} ${p.totalPallets === 1 ? 'Pallet' : 'Pallets'}</span>""")
+rep("""          <div><span style="color:var(--text-muted);">Stack Height:</span> <br><b style="color:#fff;">${p.stackHeight}" / ${p.maxHeight}" Max</b></div>
+          <div><span style="color:var(--text-muted);">Avg Pallet Weight:</span> <br><b style="color:#fff;">${p.avgPalletWeight} lbs</b></div>
+          <div><span style="color:var(--text-muted);">Total Freight Weight:</span> <br><b style="color:#fff;">${p.totalShipmentWeight} lbs</b></div>""",
+    """          <div><span style="color:var(--text-muted);">Stack Height:</span> <br><b style="color:#fff;">${fmtLen(p.stackHeight)} / ${fmtLen(p.maxHeight)} Max</b></div>
+          <div><span style="color:var(--text-muted);">Avg Pallet Weight:</span> <br><b style="color:#fff;">${fmtWt(p.avgPalletWeight)}</b></div>
+          <div><span style="color:var(--text-muted);">Total Freight Weight:</span> <br><b style="color:#fff;">${fmtWt(p.totalShipmentWeight)}</b></div>""")
+
+# --- R30: carton dims + weight convert ---
+rep("""          ${box.l}" &times; ${box.w}" &times; ${box.h}" | <b>${box.weight} ${isImp ? 'lbs' : 'kg'}</b>""",
+    """          ${fmtLen(box.l)} &times; ${fmtLen(box.w)} &times; ${fmtLen(box.h)} | <b>${fmtWt(box.weight)}</b>""")
+
+# --- R31: tare converts ---
+rep("""        <span>Carton Tare: <b>${box.tare} ${isImp ? 'lbs' : 'kg'}</b></span>""",
+    """        <span>Carton Tare: <b>${fmtWt(box.tare)}</b></span>""")
+
+# --- R32: copy manifest with feedback + display units ---
+rep("""btnCopyManifest.addEventListener('click', () => {
+  if (!state.packingResult) return;
+  let text = `AMAZON FBA CARTON MANIFEST\\n`;
+  text += `Generated: ${new Date().toLocaleDateString()}\\n`;
+  text += `Total Cartons: ${state.packingResult.boxes.length}\\n`;
+  text += `Strategy: ${state.strategy}\\n`;
+  if (state.packingResult.pallet) {
+    text += `Pallets: ${state.packingResult.pallet.totalPallets} (Ti: ${state.packingResult.pallet.ti}, Hi: ${state.packingResult.pallet.hi})\\n`;
+  }
+  text += `--------------------------------------------------\\n`;
+
+  state.packingResult.boxes.forEach((b, idx) => {
+    text += `Box #${idx + 1} (${b.l}x${b.w}x${b.h} in, ${b.weight} lbs):\\n`;
+    b.items.forEach(it => {
+      text += `  - ${it.sku}: ${it.count} units\\n`;
+    });
+  });
+
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btnCopyManifest.textContent;
+    btnCopyManifest.textContent = 'Copied to Clipboard!';
+    setTimeout(() => btnCopyManifest.textContent = orig, 2000);
+  });
+});""", """btnCopyManifest.addEventListener('click', async () => {
+  if (!state.packingResult) return;
+  let text = `AMAZON FBA CARTON MANIFEST\\n`;
+  text += `Generated: ${new Date().toLocaleDateString()}\\n`;
+  text += `Units: ${isMetric() ? 'cm / kg' : 'in / lbs'}\\n`;
+  text += `Total Cartons: ${state.packingResult.boxes.length}\\n`;
+  text += `Strategy: ${state.strategy}\\n`;
+  if (state.packingResult.pallet) {
+    text += `Pallets: ${state.packingResult.pallet.totalPallets} (Ti: ${state.packingResult.pallet.ti}, Hi: ${state.packingResult.pallet.hi})\\n`;
+  }
+  text += `--------------------------------------------------\\n`;
+
+  state.packingResult.boxes.forEach((b, idx) => {
+    text += `Box #${idx + 1} (${fmtLenShort(b.l)}x${fmtLenShort(b.w)}x${fmtLenShort(b.h)}, ${fmtWt(b.weight)}):\\n`;
+    b.items.forEach(it => {
+      text += `  - ${it.sku}: ${it.count} units\\n`;
+    });
+  });
+
+  const ok = await copyTextToClipboard(text);
+  if (ok) {
+    const orig = btnCopyManifest.textContent;
+    btnCopyManifest.textContent = 'Copied to Clipboard!';
+    setTimeout(() => btnCopyManifest.textContent = orig, 2000);
+    showToast('Manifest copied to clipboard', 'success');
+  } else {
+    showToast('Copy blocked in this view. Select the manifest text manually.', 'error');
+  }
+});""")
+
+# --- R33: CSV builder shared by download + copy, with toast feedback ---
+rep("""btnExportCsv.addEventListener('click', () => {
+  if (!state.packingResult) return;
+  // Amazon 2D Barcode Box Content CSV format standard
+  let csv = "Box Name,Length (in),Width (in),Height (in),Weight (lbs),SKU,Units Packed\\n";
+  state.packingResult.boxes.forEach((b, idx) => {
+    b.items.forEach(it => {
+      csv += `"Box ${idx + 1}",${b.l},${b.w},${b.h},${b.weight},"${it.sku}",${it.count}\\n`;
+    });
+  });
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `fba-box-manifest-${Date.now()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+});""", """// Amazon 2D Barcode Box Content CSV. Amazon's format is inches/lbs, so the
+// export stays imperial whatever the display units are.
+function buildBoxCsv() {
+  let csv = "Box Name,Length (in),Width (in),Height (in),Weight (lbs),SKU,Units Packed\\n";
+  state.packingResult.boxes.forEach((b, idx) => {
+    b.items.forEach(it => {
+      csv += `"Box ${idx + 1}",${b.l},${b.w},${b.h},${b.weight},"${it.sku}",${it.count}\\n`;
+    });
+  });
+  return csv;
+}
+
+btnExportCsv.addEventListener('click', () => {
+  if (!state.packingResult) return;
+  const csv = buildBoxCsv();
+  const filename = `fba-box-manifest-${Date.now()}.csv`;
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(`CSV download started: ${filename} (inches/lbs, Amazon format)`, 'success');
+});
+
+btnCopyCsv.addEventListener('click', async () => {
+  if (!state.packingResult) return;
+  const ok = await copyTextToClipboard(buildBoxCsv());
+  showToast(ok ? 'CSV copied to clipboard (inches/lbs, Amazon format)' : 'Copy blocked in this view.', ok ? 'success' : 'error');
+});""")
+
+# --- R34: freight / pallet control wiring ---
+rep("""renderCustomBoxes();
+
+// --- Inventory Table Rows ---""", """renderCustomBoxes();
+
+// --- Freight / Pallet Controls ---
+function setPalletStandard(s) {
+  state.pallet.standard = s;
+  document.getElementById('palletGma').classList.toggle('active', s === 'gma');
+  document.getElementById('palletEuro').classList.toggle('active', s === 'euro');
+  maybeRecalculate();
+}
+document.getElementById('palletGma').addEventListener('click', () => setPalletStandard('gma'));
+document.getElementById('palletEuro').addEventListener('click', () => setPalletStandard('euro'));
+
+function setPalletHeight(h) {
+  state.pallet.maxHeight = h;
+  ['72', '60', '50'].forEach(v => document.getElementById('palletH' + v).classList.toggle('active', parseInt(v) === h));
+  maybeRecalculate();
+}
+document.getElementById('palletH72').addEventListener('click', () => setPalletHeight(72));
+document.getElementById('palletH60').addEventListener('click', () => setPalletHeight(60));
+document.getElementById('palletH50').addEventListener('click', () => setPalletHeight(50));
+
+document.getElementById('palletMaxWeight').addEventListener('change', (e) => {
+  const v = parseFloat(e.target.value);
+  state.pallet.maxWeight = Math.round(wtToStorage(isNaN(v) ? 1500 : v));
+  syncPalletWeightInput();
+  maybeRecalculate();
+});
+
+// --- Inventory Table Rows ---""")
+
+# --- R35: init syncs unit labels + pallet weight display ---
+rep("""// Initialize Sample on first load
+state.inventory = JSON.parse(JSON.stringify(sampleCatalog));
+renderInventoryTable();
+calculatePacking();""", """// Initialize Sample on first load
+state.inventory = JSON.parse(JSON.stringify(sampleCatalog));
+renderInventoryTable();
+updateUnitLabels();
+syncPalletWeightInput();
+calculatePacking();""")
+
+DST.write_text(html)
+# Repo-root copy: the fixed app itself, so GitHub Pages serves it at /.
+ROOT = pathlib.Path('/home/hatch/workspace/fba-pack-master/index.html')
+ROOT.write_text(html)
+print('fixed bytes:', len(html), 'lines:', html.count('\n') + 1)
